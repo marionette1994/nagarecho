@@ -26,7 +26,7 @@ header{padding:10px 14px 8px;border-bottom:2px solid var(--sumi);background:var(
 .stats .sm{font-size:15px;font-weight:700}
 main{flex:1;overflow-y:auto;padding-bottom:90px}
 nav{display:flex;border-top:1px solid var(--line);background:var(--paper)}
-nav button{flex:1;padding:10px 0 12px;font-size:12px;color:var(--usu);letter-spacing:.1em}
+nav button{flex:1;padding:10px 0 12px;font-size:12px;color:var(--usu);letter-spacing:.05em;white-space:nowrap}
 nav button.on{color:var(--shu);font-weight:700;box-shadow:inset 0 2px 0 var(--shu)}
 .runbar{position:sticky;top:0;z-index:5;background:var(--sumi);color:var(--washi);padding:10px 14px;display:flex;align-items:center;gap:10px}
 .runbar .rn{flex:1;min-width:0}
@@ -61,6 +61,12 @@ nav button.on{color:var(--shu);font-weight:700;box-shadow:inset 0 2px 0 var(--sh
 .flt button{flex:none}
 .flt .sp{flex:1;min-width:6px}
 .flt button.tg.on{background:var(--shu);border-color:var(--shu)}
+.hd{flex:none;width:36px;height:40px;font-size:20px;color:var(--usu);touch-action:none}
+.arr{flex:none;display:flex;gap:5px}
+.arr button{width:36px;height:36px;border:1px solid var(--line);border-radius:4px;background:var(--paper);font-size:15px}
+.task.drag{opacity:.35}
+.task.dropb{box-shadow:inset 0 3px 0 var(--shu)}
+.task.dropa{box-shadow:inset 0 -3px 0 var(--shu)}
 .empty{padding:40px 20px;text-align:center;color:var(--usu);line-height:2}
 .fab{position:fixed;right:18px;bottom:68px;width:56px;height:56px;border-radius:50%;background:var(--shu);color:#fff;font-size:30px;line-height:1;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:6}
 .pad{padding:14px}
@@ -140,9 +146,9 @@ function defaults(){return{v:1,
     {id:'s1',name:'朝',start:'04:00'},{id:'s2',name:'午前',start:'08:00'},{id:'s3',name:'午後',start:'12:00'},
     {id:'s4',name:'夕方',start:'16:00'},{id:'s5',name:'夜',start:'20:00'},{id:'s6',name:'深夜',start:'00:00'}]},
   projects:[{id:'p1',name:'生活',color:'#3a5a78'},{id:'p2',name:'家事',color:'#5d7a4a'},{id:'p3',name:'制作',color:'#c8402f'}],
-  modes:defModes(),routines:[],days:{},running:null};}
+  modes:defModes(),routines:[],inbox:[],days:{},running:null};}
 function defModes(){return[{id:'m1',name:'集中',color:'#c8402f'},{id:'m2',name:'作業',color:'#3a5a78'},{id:'m3',name:'雑務',color:'#8a6d3b'},{id:'m4',name:'休息',color:'#5d7a4a'}];}
-function load(){try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&j.days&&j.settings){if(!j.modes)j.modes=defModes();return j;}}catch(e){}return defaults();}
+function load(){try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&j.days&&j.settings){if(!j.modes)j.modes=defModes();if(!j.inbox)j.inbox=[];return j;}}catch(e){}return defaults();}
 let S=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));localStorage.setItem(KEY+'.dirty','1');}catch(e){toast('保存に失敗しました');}}
 
@@ -196,12 +202,13 @@ function move(date,id,dir){const day=S.days[date];const list=sorted(day).filter(
 
 /* ---------- 描画 ---------- */
 let tab='today',view=today(),range='7';
+let sortMode=false,drag=null;
 let ui={sec:'',hideDone:false};try{Object.assign(ui,JSON.parse(localStorage.getItem(KEY+'.ui'))||{});}catch(e){}
 const saveUi=()=>{try{localStorage.setItem(KEY+'.ui',JSON.stringify(ui));}catch(e){}};
 function render(){if(view<'2000')view=today();renderHead();renderNav();
-  ({today:renderToday,routine:renderRoutine,review:renderReview,setting:renderSetting})[tab]();
-  $('fab').style.display=(tab==='today'||tab==='routine')?'':'none';}
-function renderNav(){const T=[['today','今日'],['routine','ルーチン'],['review','ふりかえり'],['setting','設定']];
+  ({today:renderToday,inbox:renderInbox,routine:renderRoutine,review:renderReview,setting:renderSetting})[tab]();
+  $('fab').style.display=(tab==='today'||tab==='routine'||tab==='inbox')?'':'none';}
+function renderNav(){const T=[['today','今日'],['inbox','やること'],['routine','ルーチン'],['review','ふりかえり'],['setting','設定']];
   $('nv').innerHTML=T.map(t=>`<button data-act="tab" data-t="${t[0]}" class="${tab===t[0]?'on':''}">${t[1]}</button>`).join('');}
 function calc(){const day=ensureDay(view);const now=Date.now();const run=runTask();const isT=view===today();
   let rest=0,done=0;for(const t of day.tasks){if(!t.start)rest+=t.est||0;else if(t.end)done+=act(t);}
@@ -218,6 +225,9 @@ function taskRow(t,proj0,isT){const p=proj(t.projectId),mo=mode(t.modeId);const 
   const a=st==='done'?act(t):0;const over=st==='done'&&t.est&&a>t.est;
   const meta=st==='done'?`${hm(t.start)}–${hm(t.end)}`:st==='run'?`${hm(t.start)}– 実行中`:(proj0?`予 ${hm(proj0)}`:'');
   const btn=st==='done'?'✓':st==='run'?'■':'▶';
+  if(sortMode&&st==='todo')return `<div class="task todo" data-row="${t.id}"><button class="hd" data-hd="${t.id}">☰</button>
+   <div class="tb"><div class="tn">${t.routineId?'↻ ':''}${esc(t.name)}</div><div class="tm"><span class="num">${t.est||0}分${proj0?'・予 '+hm(proj0):''}</span></div></div>
+   <div class="arr"><button data-act="mvrow" data-id="${t.id}" data-d="-1">↑</button><button data-act="mvrow" data-id="${t.id}" data-d="1">↓</button></div></div>`;
   return `<div class="task ${st}"><button class="go" data-act="${st==='todo'?(isT?'start':'edit'):st==='run'?'finish':'edit'}" data-id="${t.id}">${btn}</button>
    <div class="tb" data-act="edit" data-id="${t.id}"><div class="tn">${t.routineId?'↻ ':''}${esc(t.name)}</div>
    <div class="tm">${p?`<span class="pj" style="--c:${esc(p.color)}">${esc(p.name)}</span>`:''}${mo?`<span class="md" style="--c:${esc(mo.color)}">${esc(mo.name)}</span>`:''}<span class="num">${meta}</span></div></div>
@@ -230,7 +240,8 @@ function renderToday(){const c=calc();const list=sorted(c.day);const td=today();
     if(n)h+=`<div class="banner">過去の未完了が ${n}件あります<button data-act="carry">今日へ移す</button></div>`;}
   const SS=secs();if(ui.sec&&!SS.some(s=>s.id===ui.sec))ui.sec='';
   const nDone=list.filter(t=>t.start&&t.end).length;
-  h+=`<div class="chips flt"><button data-act="fsec" data-s="" class="${ui.sec?'':'on'}">すべて</button>${SS.map(s=>{const n=list.filter(t=>secIdx(t.section)===secIdx(s.id)&&!(t.start&&t.end)).length;return `<button data-act="fsec" data-s="${s.id}" class="${ui.sec===s.id?'on':''}">${esc(s.name)}${n?' '+n:''}</button>`;}).join('')}<span class="sp"></span><button data-act="hidedone" class="tg ${ui.hideDone?'on':''}">${ui.hideDone?'完了を表示'+(nDone?' '+nDone:''):'完了を隠す'}</button></div>`;
+  h+=`<div class="chips flt"><button data-act="fsec" data-s="" class="${ui.sec?'':'on'}">すべて</button>${SS.map(s=>{const n=list.filter(t=>secIdx(t.section)===secIdx(s.id)&&!(t.start&&t.end)).length;return `<button data-act="fsec" data-s="${s.id}" class="${ui.sec===s.id?'on':''}">${esc(s.name)}${n?' '+n:''}</button>`;}).join('')}<span class="sp"></span><button data-act="sortmode" class="tg ${sortMode?'on':''}">${sortMode?'並べ替え終了':'並べ替え'}</button><button data-act="hidedone" class="tg ${ui.hideDone?'on':''}">${ui.hideDone?'完了を表示'+(nDone?' '+nDone:''):'完了を隠す'}</button></div>`;
+  if(sortMode)h+=`<p class="hint" style="margin:6px 14px 0">☰ を押したまま上下に動かすか、↑↓ で順番を変えられます（未着手のタスクのみ）。</p>`;
   if(!list.length)h+=`<div class="empty">まだタスクがありません。<br>右下の「＋」から追加してください。</div>`;
   let cur=c.cur,shown=0;const nowSec=c.isT?secAt(Date.now()).id:null;
   for(const s of SS){const all=list.filter(t=>secIdx(t.section)===secIdx(s.id));const vis=!ui.sec||ui.sec===s.id;
@@ -240,6 +251,31 @@ function renderToday(){const c=calc();const list=sorted(c.day);const td=today();
     for(const t of all){let p0=null;if(!t.start&&c.isT){p0=cur;cur+=(t.est||0)*60000;}if(vis&&ts.includes(t)){h+=taskRow(t,p0,c.isT);shown++;}}}
   if(list.length&&!shown)h+=`<div class="empty">${ui.hideDone?'未完了のタスクはありません。':'このセクションにタスクはありません。'}</div>`;
   $('mn').innerHTML=h;}
+function inboxSorted(){return S.inbox.slice().sort((a,b)=>(a.order||0)-(b.order||0));}
+function renderInbox(){let h='<div class="pad" style="padding-bottom:0"><h2>やること</h2><p class="hint">日付を決めていないタスクの置き場です。▶ でいますぐ開始、タップで編集できます。</p></div>';
+  const list=inboxSorted();if(!list.length)h+='<div class="empty">まだありません。<br>右下の「＋」から追加してください。</div>';
+  for(const t of list){const p=proj(t.projectId),mo=mode(t.modeId);
+    h+=`<div class="task todo"><button class="go" data-act="istart" data-id="${t.id}">▶</button><div class="tb" data-act="iedit" data-id="${t.id}"><div class="tn">${esc(t.name)}</div>
+     <div class="tm">${p?`<span class="pj" style="--c:${esc(p.color)}">${esc(p.name)}</span>`:''}${mo?`<span class="md" style="--c:${esc(mo.color)}">${esc(mo.name)}</span>`:''}${t.keep?'<span>くり返し使う</span>':''}</div></div>
+     <div class="tt num"><b>${t.est||0}</b>分</div></div>`;}
+  $('mn').innerHTML=h;}
+function inboxSheet(id){const t=id?S.inbox.find(x=>x.id===id):{id:'',name:'',est:15,projectId:'',modeId:'',note:'',keep:false};if(!t)return;
+  openSheet(`<h3>${id?'やることの編集':'やることを追加'}</h3><input type="hidden" id="f_id" value="${t.id}"><div class="f"><label>タスク名</label><input id="f_name" value="${esc(t.name)}" enterkeyhint="done"></div>${estField(t.est||0)}
+  <div class="row"><div class="f"><label>プロジェクト</label><select id="f_prj">${prjOpts(t.projectId)}</select></div><div class="f"><label>モード</label><select id="f_mode">${modeOpts(t.modeId)}</select></div></div>
+  <div class="f"><label>メモ</label><textarea id="f_note">${esc(t.note||'')}</textarea></div>
+  <div class="f"><label class="chk"><input type="checkbox" id="f_keep" ${t.keep?'checked':''}>開始してもリストに残す（くり返し使う）</label></div>
+  <div class="btns"><button class="btn pri" data-act="isave">${id?'保存':'追加'}</button><button class="btn" data-act="close">閉じる</button></div>
+  ${id?'<div class="btns"><button class="btn" data-act="itoday">今日のリストへ</button><button class="btn" data-act="imv" data-d="-1">↑ 上へ</button><button class="btn" data-act="imv" data-d="1">↓ 下へ</button><button class="btn dan" data-act="idel">削除</button></div>':''}`);
+  if(!id)setTimeout(()=>{const e=$('f_name');if(e)e.focus();},60);}
+function fromInbox(id){const it=S.inbox.find(x=>x.id===id);if(!it)return null;const td=today(),d=dayW(td);
+  const t={id:uid(),name:it.name,est:it.est,projectId:it.projectId,modeId:it.modeId||'',section:secAt(Date.now()).id,start:null,end:null,note:it.note||'',routineId:null,order:nextOrder(d)};
+  d.tasks.push(t);if(!it.keep)S.inbox=S.inbox.filter(x=>x!==it);return t;}
+function dropAt(d){const day=S.days[view],t=findTask(view,d.id);if(!day||!t)return;const full=sorted(day).filter(x=>!x.start&&x!==t);let idx,sec;
+  if(d.k<d.rows.length){const before=findTask(view,d.rows[d.k].dataset.row);sec=before.section;idx=full.indexOf(before);
+    if(d.k>0){const prev=findTask(view,d.rows[d.k-1].dataset.row);if(prev.section!==before.section){let hd=d.rows[d.k].previousElementSibling;while(hd&&!hd.classList.contains('sec'))hd=hd.previousElementSibling;
+      if(hd){const b=hd.getBoundingClientRect();if(d.y<b.top+b.height/2)sec=prev.section;}}}}
+  else{const last=findTask(view,d.rows[d.rows.length-1].dataset.row);sec=last.section;idx=full.indexOf(last)+1;}
+  if(idx<0)return;full.splice(idx,0,t);t.section=sec;full.forEach((x,i)=>{x.order=i+1;});save();}
 function repLabel(r){return r.type==='daily'?'毎日':r.type==='weekdays'?'平日':'毎週 '+(r.days||[]).slice().sort().map(d=>WD[d]).join('・');}
 function renderRoutine(){let h='<div class="pad"><h2>ルーチン</h2><p class="hint">設定した曜日に、その日のタスクとして自動で並びます。</p>';
   if(!S.routines.length)h+='<div class="empty">ルーチンはまだありません。<br>右下の「＋」から追加してください。</div>';
@@ -280,7 +316,7 @@ function renderSetting(){const st=S.settings;
   <h2>Googleドライブ</h2>${driveHtml()}
   <h2>データ</h2><p class="hint">データはこの端末の中に保存されます。アプリを削除すると消えるので、Googleドライブ保存かバックアップを使ってください。</p>
   <div class="btns"><button class="btn" data-act="backup">バックアップ（JSON）</button><button class="btn" data-act="restore">復元</button><button class="btn" data-act="csv">全記録をCSVで保存</button></div>
-  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.3</p></div>`;
+  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.4</p></div>`;
   $('mn').innerHTML=h;}
 
 /* ---------- シート ---------- */
@@ -304,7 +340,7 @@ function editSheet(id){const t=findTask(view,id);if(!t)return;const st=t.start?(
   ${cls(t.projectId,t.modeId,t.section)}`;
   if(st!=='todo')h+=`<div class="row"><div class="f"><label>開始</label><input type="time" id="f_st" value="${hm(t.start)}"></div><div class="f"><label>終了</label><input type="time" id="f_en" value="${t.end?hm(t.end):''}" ${st==='run'?'disabled':''}></div></div>`;
   h+=`<div class="f"><label>メモ</label><textarea id="f_note">${esc(t.note||'')}</textarea></div><div class="btns"><button class="btn pri" data-act="editsave">保存</button><button class="btn" data-act="close">閉じる</button></div><div class="btns">`;
-  if(st==='todo')h+=`<button class="btn" data-act="mv" data-d="-1">↑ 上へ</button><button class="btn" data-act="mv" data-d="1">↓ 下へ</button><button class="btn" data-act="tomorrow">翌日へ送る</button>`;
+  if(st==='todo')h+=`<button class="btn" data-act="mv" data-d="-1">↑ 上へ</button><button class="btn" data-act="mv" data-d="1">↓ 下へ</button><button class="btn" data-act="tomorrow">翌日へ送る</button><button class="btn" data-act="toinbox">やることへ戻す</button>`;
   if(st==='done')h+=`<button class="btn" data-act="redo">もう一度やる</button><button class="btn" data-act="unstart">未着手に戻す</button>`;
   if(!t.routineId)h+=`<button class="btn" data-act="mkroutine">ルーチンにする</button>`;
   h+=`<button class="btn dan" data-act="del">削除</button></div>`;openSheet(h);}
@@ -336,13 +372,25 @@ function copy(text){if(window.Android&&Android.copy){Android.copy(text);toast('�
 const A={
  tab(d){tab=d.t;render();$('mn').scrollTop=0;},
  day(d){view=+d.n?addDays(view,+d.n):today();render();},
- add(){tab==='routine'?routineSheet(''):addSheet();},
+ add(){tab==='routine'?routineSheet(''):tab==='inbox'?inboxSheet(''):addSheet();},
  close(){closeSheet();},
  chip(d,el){$('f_est').value=d.v;el.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));},
  wd(d,el){el.classList.toggle('on');$('f_type').value='weekly';},
  addsave(){const v=formVals();if(!v.name){toast('タスク名を入れてください');return;}const day=dayW(view);
   const t=Object.assign({id:uid(),start:null,end:null,note:'',routineId:null,order:nextOrder(day)},v);day.tasks.push(t);
   const now=$('f_now')&&$('f_now').checked;save();closeSheet();if(now)startTask(view,t.id);else render();},
+ sortmode(){sortMode=!sortMode;render();},
+ mvrow(d){move(view,d.id,+d.d);render();},
+ iedit(d){inboxSheet(d.id);},
+ isave(){const name=$('f_name').value.trim();if(!name){toast('タスク名を入れてください');return;}
+  const v={name,est:Math.max(0,Math.round(+$('f_est').value||0)),projectId:$('f_prj').value,modeId:$('f_mode').value,note:$('f_note').value,keep:$('f_keep').checked};const id=$('f_id').value;
+  if(id)Object.assign(S.inbox.find(x=>x.id===id),v);else S.inbox.push(Object.assign({id:uid(),order:S.inbox.reduce((m,x)=>Math.max(m,x.order||0),0)+1},v));save();closeSheet();render();},
+ istart(d){const t=fromInbox(d.id);if(!t)return;save();view=today();tab='today';startTask(view,t.id);$('mn').scrollTop=0;},
+ itoday(){const t=fromInbox($('f_id').value);if(!t)return;save();closeSheet();render();toast('今日のリストに追加しました');},
+ imv(d){const l=inboxSorted(),i=l.findIndex(x=>x.id===$('f_id').value),j=i+ +d.d;if(i<0||j<0||j>=l.length)return;const x=l[i];l[i]=l[j];l[j]=x;l.forEach((y,n)=>{y.order=n+1;});save();render();toast(+d.d<0?'上へ移動':'下へ移動');},
+ idel(){const id=$('f_id').value;ask('この「やること」を削除しますか？',()=>{S.inbox=S.inbox.filter(x=>x.id!==id);save();closeSheet();render();});},
+ toinbox(){const id=$('f_id').value,t=findTask(view,id);if(!t)return;S.days[view].tasks=S.days[view].tasks.filter(x=>x!==t);
+  S.inbox.push({id:uid(),name:t.name,est:t.est,projectId:t.projectId,modeId:t.modeId||'',note:t.note||'',keep:false,order:S.inbox.reduce((m,x)=>Math.max(m,x.order||0),0)+1});save();closeSheet();render();toast('やることへ戻しました');},
  fsec(d){ui.sec=d.s;saveUi();render();},
  hidedone(){ui.hideDone=!ui.hideDone;saveUi();render();},
  start(d){startTask(view,d.id);},
@@ -395,8 +443,16 @@ document.addEventListener('click',e=>{if(e.target===$('ovl')){closeSheet();retur
 document.addEventListener('change',e=>{if(e.target.id==='autoSync'){S.settings.autoSync=e.target.checked;localStorage.setItem(KEY,JSON.stringify(S));return;}if(e.target.id==='dayStart'){S.settings.dayStart=+e.target.value;save();view=today();render();toast('保存しました');}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f_name'){const b=$('sheet').querySelector('.btn.pri');if(b)b.click();}});
 $('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.days||!j.settings||!j.settings.sections)throw 0;
-  ask('現在のデータをバックアップの内容で置き換えます。よろしいですか？',()=>{S=j;if(!S.modes)S.modes=defModes();if(!S.routines)S.routines=[];if(!S.projects)S.projects=[];save();view=today();render();toast('復元しました');});}catch(x){toast('流帖のバックアップファイルではありません');}};r.readAsText(f);});
-window.onAndroidBack=()=>{if($('ask').classList.contains('on')){A.askno();return true;}if($('ovl').classList.contains('on')){closeSheet();return true;}if(tab!=='today'){tab='today';render();return true;}if(view!==today()){view=today();render();return true;}return false;};
+  ask('現在のデータをバックアップの内容で置き換えます。よろしいですか？',()=>{S=j;if(!S.modes)S.modes=defModes();if(!S.inbox)S.inbox=[];if(!S.routines)S.routines=[];if(!S.projects)S.projects=[];save();view=today();render();toast('復元しました');});}catch(x){toast('流帖のバックアップファイルではありません');}};r.readAsText(f);});
+document.addEventListener('pointerdown',e=>{const h=e.target.closest('[data-hd]');if(!h)return;e.preventDefault();const row=h.closest('.task');drag={id:h.dataset.hd,row,k:null,rows:[],y:0};row.classList.add('drag');try{h.setPointerCapture(e.pointerId);}catch(x){}});
+document.addEventListener('pointermove',e=>{if(!drag)return;e.preventDefault();const mn=$('mn'),r=mn.getBoundingClientRect();
+  if(e.clientY<r.top+50)mn.scrollTop-=14;else if(e.clientY>r.bottom-50)mn.scrollTop+=14;
+  const rows=[...mn.querySelectorAll('[data-row]')].filter(x=>x!==drag.row);rows.forEach(x=>x.classList.remove('dropb','dropa'));
+  let k=rows.length;for(let i=0;i<rows.length;i++){const b=rows[i].getBoundingClientRect();if(e.clientY<b.top+b.height/2){k=i;break;}}
+  drag.k=k;drag.rows=rows;drag.y=e.clientY;if(k<rows.length)rows[k].classList.add('dropb');else if(rows.length)rows[rows.length-1].classList.add('dropa');});
+const endDrag=e=>{if(!drag)return;const d=drag;drag=null;const y=$('mn').scrollTop;if(e.type==='pointerup'&&d.k!=null&&d.rows.length)dropAt(d);render();$('mn').scrollTop=y;};
+document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
+window.onAndroidBack=()=>{if(sortMode&&tab==='today'&&!$('ovl').classList.contains('on')&&!$('ask').classList.contains('on')){sortMode=false;render();return true;}if($('ask').classList.contains('on')){A.askno();return true;}if($('ovl').classList.contains('on')){closeSheet();return true;}if(tab!=='today'){tab='today';render();return true;}if(view!==today()){view=today();render();return true;}return false;};
 window.onAndroidMsg=m=>toast(m);
 let manualSync=false;
 window.onAndroidSync=ok=>{if(ok){localStorage.setItem(KEY+'.dirty','0');localStorage.setItem(KEY+'.sync',String(Date.now()));if(manualSync)toast('Googleドライブに保存しました');}
@@ -406,7 +462,7 @@ window.onAndroidPause=()=>{if(window.Android&&Android.linkName&&S.settings.autoS
 
 /* ---------- 時計 ---------- */
 let lastDay=today(),lastMin=-1;
-setInterval(()=>{const td=today();if(td!==lastDay){if(view===lastDay)view=td;lastDay=td;render();return;}
+setInterval(()=>{if(drag)return;const td=today();if(td!==lastDay){if(view===lastDay)view=td;lastDay=td;render();return;}
   const run=runTask();const el=$('el');if(run&&el){const ms=Date.now()-run.start;el.textContent=hms(ms);el.classList.toggle('over',!!run.est&&ms>run.est*60000);}
   const m=new Date().getMinutes();if(m!==lastMin){lastMin=m;if(!$('ovl').classList.contains('on')&&tab==='today'){const y=$('mn').scrollTop;render();$('mn').scrollTop=y;}else renderHead();}
 },1000);
