@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>流帖</title>
+<style>
+:root{--washi:#f4efe4;--paper:#fbf8f1;--sumi:#2b2a28;--usu:#7a756b;--line:#d8cfbd;--shu:#c8402f;--ai:#3a5a78;--matsu:#5d7a4a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--washi);color:var(--sumi);font-family:"Noto Serif JP","Noto Serif CJK JP",serif;font-size:15px;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;user-select:none}
+input,select,textarea{font:inherit;font-size:16px;color:var(--sumi);background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:9px 10px;width:100%}
+textarea{min-height:64px;resize:vertical}
+.num{font-family:"Roboto Mono",monospace;font-variant-numeric:tabular-nums}
+#app{display:flex;flex-direction:column;height:100%}
+header{padding:10px 14px 8px;border-bottom:2px solid var(--sumi);background:var(--washi)}
+.hrow{display:flex;align-items:center;gap:8px}
+.title{font-size:20px;font-weight:700;letter-spacing:.15em}
+.title i{font-style:normal;color:var(--shu)}
+.datenav{margin-left:auto;display:flex;align-items:center;gap:2px}
+.datenav button{width:34px;height:34px;font-size:16px;color:var(--usu)}
+.datenav .d{width:auto;padding:0 6px;color:var(--sumi);font-weight:700}
+.stats{display:flex;gap:14px;margin-top:6px;align-items:baseline}
+.stats .big{font-size:26px;font-weight:700;line-height:1}
+.stats label{display:block;font-size:10px;color:var(--usu);letter-spacing:.1em}
+.stats .sm{font-size:15px;font-weight:700}
+main{flex:1;overflow-y:auto;padding-bottom:90px}
+nav{display:flex;border-top:1px solid var(--line);background:var(--paper)}
+nav button{flex:1;padding:10px 0 12px;font-size:12px;color:var(--usu);letter-spacing:.1em}
+nav button.on{color:var(--shu);font-weight:700;box-shadow:inset 0 2px 0 var(--shu)}
+.runbar{position:sticky;top:0;z-index:5;background:var(--sumi);color:var(--washi);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.runbar .rn{flex:1;min-width:0}
+.runbar .rn b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.runbar .rn span{font-size:11px;opacity:.7}
+.runbar .el{font-size:22px;font-weight:700}
+.runbar .el.over{color:#ff9b8a}
+.runbar button{border:1px solid var(--washi);border-radius:4px;padding:7px 10px;font-size:13px;color:var(--washi)}
+.runbar button.fin{background:var(--shu);border-color:var(--shu)}
+.banner{margin:10px 14px 0;padding:9px 12px;border:1px dashed var(--shu);border-radius:4px;display:flex;align-items:center;gap:8px;font-size:13px}
+.banner button{margin-left:auto;color:var(--shu);font-weight:700;white-space:nowrap}
+.sec{display:flex;align-items:baseline;gap:8px;padding:14px 14px 4px;border-bottom:1px solid var(--line)}
+.sec b{font-size:14px;letter-spacing:.2em}
+.sec span{font-size:11px;color:var(--usu)}
+.sec .r{margin-left:auto}
+.sec.now b{color:var(--shu)}
+.task{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #e6dfcf}
+.task .go{flex:none;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--sumi);font-size:13px;display:grid;place-items:center}
+.task.done .go{border-color:var(--line);color:var(--usu)}
+.task.run{background:#f9e9e3}
+.task.run .go{background:var(--shu);border-color:var(--shu);color:#fff}
+.task .tb{flex:1;min-width:0}
+.task .tn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task.done .tn{color:var(--usu)}
+.task .tm{font-size:11px;color:var(--usu);margin-top:2px;display:flex;gap:6px;align-items:center}
+.pj{display:inline-block;padding:0 6px;border-radius:2px;color:#fff;font-size:10px;background:var(--c,var(--ai));font-family:sans-serif}
+.task .tt{flex:none;text-align:right;font-size:11px;color:var(--usu)}
+.task .tt b{font-size:16px;color:var(--sumi)}
+.task .tt b.over{color:var(--shu)}
+.empty{padding:40px 20px;text-align:center;color:var(--usu);line-height:2}
+.fab{position:fixed;right:18px;bottom:68px;width:56px;height:56px;border-radius:50%;background:var(--shu);color:#fff;font-size:30px;line-height:1;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:6}
+.pad{padding:14px}
+h2{font-size:15px;letter-spacing:.2em;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--sumi)}
+h2:first-child{margin-top:0}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.card .cb{flex:1;min-width:0}
+.card small{color:var(--usu);display:block;margin-top:2px}
+.card.off{opacity:.5}
+.btn{display:inline-block;border:1px solid var(--sumi);border-radius:4px;padding:9px 14px;font-size:14px;background:var(--paper)}
+.btn.pri{background:var(--shu);border-color:var(--shu);color:#fff;font-weight:700}
+.btn.dan{border-color:var(--shu);color:var(--shu)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.seg{display:flex;border:1px solid var(--sumi);border-radius:4px;overflow:hidden;margin-bottom:12px}
+.seg button{flex:1;padding:8px 0;font-size:13px}
+.seg button.on{background:var(--sumi);color:var(--washi)}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi div{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:8px;text-align:center}
+.kpi b{display:block;font-size:20px}
+.kpi span{font-size:10px;color:var(--usu)}
+.bar{margin:7px 0}
+.bar .bl{display:flex;font-size:13px}
+.bar .bl span{margin-left:auto;color:var(--usu);font-size:12px}
+.bar .bt{height:8px;background:#e6dfcf;border-radius:2px;margin-top:3px;overflow:hidden}
+.bar .bt i{display:block;height:100%;background:var(--c,var(--ai))}
+.days{display:flex;align-items:flex-end;gap:2px;height:90px;margin-top:6px}
+.days div{flex:1;background:var(--ai);min-height:1px;border-radius:1px 1px 0 0}
+.days div.t{background:var(--shu)}
+.ovl{position:fixed;inset:0;background:rgba(43,42,40,.45);z-index:20;display:none;align-items:flex-end}
+.ovl.on{display:flex}
+.sheet{background:var(--washi);width:100%;max-height:92%;overflow-y:auto;border-radius:12px 12px 0 0;padding:16px 16px 22px;border-top:3px solid var(--shu)}
+.sheet h3{margin:0 0 12px;font-size:16px;letter-spacing:.15em}
+.f{margin-bottom:11px}
+.f>label{display:block;font-size:11px;color:var(--usu);margin-bottom:3px;letter-spacing:.1em}
+.row{display:flex;gap:8px}
+.row>*{flex:1;min-width:0}
+.chips{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.chips button{border:1px solid var(--line);border-radius:14px;padding:4px 11px;font-size:13px;background:var(--paper)}
+.chips button.on{background:var(--sumi);color:var(--washi);border-color:var(--sumi)}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px}
+.chk input{width:20px;height:20px;flex:none}
+#ask{align-items:center;justify-content:center;z-index:30}
+#ask .box{background:var(--washi);border-radius:8px;padding:18px;width:82%;max-width:340px;border-top:3px solid var(--shu)}
+#ask p{margin:0 0 14px;line-height:1.7}
+#toast{position:fixed;left:50%;bottom:130px;transform:translateX(-50%);background:var(--sumi);color:var(--washi);padding:8px 16px;border-radius:18px;font-size:13px;z-index:40;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#toast.on{opacity:.95}
+.srow{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.srow input[type=time]{width:120px;flex:none}
+.srow input[type=color]{width:46px;height:42px;padding:2px;flex:none}
+.srow button{flex:none;width:34px;height:40px;color:var(--shu);font-size:18px}
+.hint{font-size:12px;color:var(--usu);line-height:1.7}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hd"></header>
+  <main id="mn"></main>
+  <nav id="nv"></nav>
+</div>
+<button class="fab" id="fab" data-act="add">＋</button>
+<div class="ovl" id="ovl"><div class="sheet" id="sheet"></div></div>
+<div class="ovl" id="ask"><div class="box"><p id="askmsg"></p><div class="btns" style="justify-content:flex-end;margin:0"><button class="btn" data-act="askno">やめる</button><button class="btn pri" data-act="askyes">はい</button></div></div></div>
+<div id="toast"></div>
+<input type="file" id="file" accept=".json,application/json" style="display:none">
+<script>
+'use strict';
+const KEY='nagarecho.v1';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const WD=['日','月','火','水','木','金','土'];
+
+function defaults(){return{v:1,
+  settings:{dayStart:4,sections:[
+    {id:'s1',name:'朝',start:'04:00'},{id:'s2',name:'午前',start:'08:00'},{id:'s3',name:'午後',start:'12:00'},
+    {id:'s4',name:'夕方',start:'16:00'},{id:'s5',name:'夜',start:'20:00'},{id:'s6',name:'深夜',start:'00:00'}]},
+  projects:[{id:'p1',name:'生活',color:'#3a5a78'},{id:'p2',name:'家事',color:'#5d7a4a'},{id:'p3',name:'制作',color:'#c8402f'}],
+  routines:[],days:{},running:null};}
+function load(){try{const j=JSON.parse(localStorage.getItem(KEY));if(j&&j.days&&j.settings)return j;}catch(e){}return defaults();}
+let S=load();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('保存に失敗しました');}}
+
+/* ---------- 日付・時刻 ---------- */
+const dstr=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today=()=>dstr(new Date(Date.now()-S.settings.dayStart*3600e3));
+const addDays=(s,n)=>{const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+n);return dstr(d);};
+const dow=s=>new Date(s+'T12:00:00').getDay();
+const hm=ts=>{const d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes());};
+const dur=m=>{m=Math.round(m);return m<60?m+'分':Math.floor(m/60)+':'+pad(m%60);};
+const hms=ms=>{const s=Math.max(0,Math.floor(ms/1000));return Math.floor(s/3600)+':'+pad(Math.floor(s/60)%60)+':'+pad(s%60);};
+const mins=s=>{const a=s.split(':');return +a[0]*60+ +a[1];};
+function tsFor(date,t){const a=t.split(':').map(Number);const d=new Date(date+'T00:00:00');d.setHours(a[0],a[1],0,0);if(a[0]<S.settings.dayStart)d.setDate(d.getDate()+1);return d.getTime();}
+const act=t=>t.start&&t.end?Math.max(0,Math.round((t.end-t.start)/60000)):0;
+
+/* ---------- セクション ---------- */
+function secs(){const b=S.settings.dayStart*60;return S.settings.sections.slice().sort((x,y)=>((mins(x.start)-b+1440)%1440)-((mins(y.start)-b+1440)%1440));}
+function secAt(ts){const d=new Date(ts),m=d.getHours()*60+d.getMinutes();const a=S.settings.sections.slice().sort((x,y)=>mins(x.start)-mins(y.start));let r=a[a.length-1];for(const s of a)if(mins(s.start)<=m)r=s;return r;}
+const secIdx=id=>{const i=secs().findIndex(s=>s.id===id);return i<0?0:i;};
+const proj=id=>S.projects.find(p=>p.id===id);
+
+/* ---------- 日データ ---------- */
+function applies(r,date){const w=dow(date);if(!r.active)return false;if(r.type==='daily')return true;if(r.type==='weekdays')return w>=1&&w<=5;return (r.days||[]).includes(w);}
+function ensureDay(date){let day=S.days[date];let ch=false;
+  if(date>=today()){for(const r of S.routines){if(!applies(r,date))continue;if(!day){day=S.days[date]={tasks:[],rdone:[]};}
+    if(day.rdone.includes(r.id))continue;day.rdone.push(r.id);
+    day.tasks.push({id:uid(),name:r.name,est:r.est,projectId:r.projectId,section:r.section,start:null,end:null,note:'',routineId:r.id,order:nextOrder(day)});ch=true;}}
+  if(ch)save();return day||{tasks:[],rdone:[]};}
+function dayW(date){if(!S.days[date])S.days[date]={tasks:[],rdone:[]};return S.days[date];}
+function nextOrder(day){return day.tasks.reduce((m,t)=>Math.max(m,t.order||0),0)+1;}
+function sorted(day){return day.tasks.slice().sort((a,b)=>{const s=secIdx(a.section)-secIdx(b.section);if(s)return s;
+  const ka=a.start?0:1,kb=b.start?0:1;if(ka!==kb)return ka-kb;return ka===0?a.start-b.start:(a.order||0)-(b.order||0);});}
+function findTask(date,id){const d=S.days[date];return d?d.tasks.find(t=>t.id===id):null;}
+function runTask(){if(!S.running)return null;const t=findTask(S.running.date,S.running.id);if(!t||!t.start||t.end){S.running=null;return null;}return t;}
+
+/* ---------- 操作 ---------- */
+function startTask(date,id){const now=Date.now();const cur=runTask();if(cur)cur.end=now;
+  let t=findTask(date,id);if(!t)return;const td=today();
+  if(date!==td){S.days[date].tasks=S.days[date].tasks.filter(x=>x!==t);dayW(td).tasks.push(t);date=td;}
+  t.start=now;t.end=null;t.section=secAt(now).id;S.running={date,id:t.id};save();render();}
+function finishRun(){const t=runTask();if(!t)return;t.end=Date.now();S.running=null;save();render();toast('完了　'+dur(act(t)));}
+function pauseRun(){const t=runTask();if(!t)return;const date=S.running.date;t.end=Date.now();S.running=null;
+  const d=dayW(today());const minO=d.tasks.reduce((m,x)=>Math.min(m,x.order||0),0);
+  d.tasks.push({id:uid(),name:t.name,est:Math.max(1,(t.est||0)-act(t)),projectId:t.projectId,section:secAt(Date.now()).id,start:null,end:null,note:t.note||'',routineId:null,order:minO-1});
+  save();render();toast('中断しました（残りを未着手に戻しました）');}
+function move(date,id,dir){const day=S.days[date];const list=sorted(day).filter(t=>!t.start);const i=list.findIndex(t=>t.id===id);if(i<0)return;const t=list[i],n=list[i+dir];const ss=secs(),si=secIdx(t.section);
+  if(n&&n.section===t.section){const o=t.order;t.order=n.order;n.order=o;if(t.order===n.order)t.order+=dir;}
+  else if(ss[si+dir]){t.section=ss[si+dir].id;t.order=dir<0?nextOrder(day):day.tasks.reduce((m,x)=>Math.min(m,x.order||0),0)-1;}
+  save();}
+
+/* ---------- 描画 ---------- */
+let tab='today',view=today(),range='7';
+function render(){if(view<'2000')view=today();renderHead();renderNav();
+  ({today:renderToday,routine:renderRoutine,review:renderReview,setting:renderSetting})[tab]();
+  $('fab').style.display=(tab==='today'||tab==='routine')?'':'none';}
+function renderNav(){const T=[['today','今日'],['routine','ルーチン'],['review','ふりかえり'],['setting','設定']];
+  $('nv').innerHTML=T.map(t=>`<button data-act="tab" data-t="${t[0]}" class="${tab===t[0]?'on':''}">${t[1]}</button>`).join('');}
+function calc(){const day=ensureDay(view);const now=Date.now();const run=runTask();const isT=view===today();
+  let rest=0,done=0;for(const t of day.tasks){if(!t.start)rest+=t.est||0;else if(t.end)done+=act(t);}
+  let cur=now;if(run){const rem=Math.max(0,(run.est||0)*60000-(now-run.start));cur=now+rem;if(S.running.date===view)done+=Math.round((now-run.start)/60000);}
+  const fin=cur+rest*60000;return{day,rest,done,fin,isT,run,cur};}
+function renderHead(){const c=calc();const td=today();
+  const lab=view===td?'今日':view===addDays(td,-1)?'昨日':view===addDays(td,1)?'明日':'';
+  $('hd').innerHTML=`<div class="hrow"><div class="title">流<i>帖</i></div>
+   <div class="datenav"><button data-act="day" data-n="-1">◀</button><button class="d" data-act="day" data-n="0">${view.slice(5).replace('-','/')}（${WD[dow(view)]}）${lab?' '+lab:''}</button><button data-act="day" data-n="1">▶</button></div></div>
+  <div class="stats"><div><label>終了予定</label><span class="big num" id="fin">${c.isT?hm(c.fin):'--:--'}</span></div>
+   <div><label>残り見積</label><span class="sm num">${dur(c.rest)}</span></div>
+   <div><label>実績</label><span class="sm num" id="dn">${dur(c.done)}</span></div></div>`;}
+function taskRow(t,proj0,isT){const p=proj(t.projectId);const st=t.start?(t.end?'done':'run'):'todo';
+  const a=st==='done'?act(t):0;const over=st==='done'&&t.est&&a>t.est;
+  const meta=st==='done'?`${hm(t.start)}–${hm(t.end)}`:st==='run'?`${hm(t.start)}– 実行中`:(proj0?`予 ${hm(proj0)}`:'');
+  const btn=st==='done'?'✓':st==='run'?'■':'▶';
+  return `<div class="task ${st}"><button class="go" data-act="${st==='todo'?(isT?'start':'edit'):st==='run'?'finish':'edit'}" data-id="${t.id}">${btn}</button>
+   <div class="tb" data-act="edit" data-id="${t.id}"><div class="tn">${t.routineId?'↻ ':''}${esc(t.name)}</div>
+   <div class="tm">${p?`<span class="pj" style="--c:${esc(p.color)}">${esc(p.name)}</span>`:''}<span class="num">${meta}</span></div></div>
+   <div class="tt num">${st==='done'?`<b class="${over?'over':''}">${a}</b>/${t.est||0}分`:`<b>${t.est||0}</b>分`}</div></div>`;}
+function renderToday(){const c=calc();const list=sorted(c.day);const td=today();let h='';
+  const run=c.run;
+  if(run){const el=Date.now()-run.start;h+=`<div class="runbar"><div class="rn"><b>${esc(run.name)}</b><span class="num">${hm(run.start)}開始・見積 ${run.est||0}分</span></div>
+    <div class="el num ${el>(run.est||0)*60000&&run.est?'over':''}" id="el">${hms(el)}</div><button data-act="pause">中断</button><button class="fin" data-act="finish">完了</button></div>`;}
+  if(c.isT){let n=0;for(let i=1;i<=14;i++){const d=S.days[addDays(td,-i)];if(d)n+=d.tasks.filter(t=>!t.start&&!t.routineId).length;}
+    if(n)h+=`<div class="banner">過去の未完了が ${n}件あります<button data-act="carry">今日へ移す</button></div>`;}
+  if(!list.length)h+=`<div class="empty">まだタスクがありません。<br>右下の「＋」から追加してください。</div>`;
+  let cur=c.cur;const nowSec=c.isT?secAt(Date.now()).id:null;
+  for(const s of secs()){const ts=list.filter(t=>secIdx(t.section)===secIdx(s.id));if(!ts.length&&s.id!==nowSec)continue;
+    const e=ts.filter(t=>!t.start).reduce((m,t)=>m+(t.est||0),0),a=ts.reduce((m,t)=>m+act(t),0);
+    h+=`<div class="sec ${s.id===nowSec?'now':''}"><b>${esc(s.name)}</b><span class="num">${s.start}〜</span><span class="r num">${e?'残 '+dur(e):''}${a?'　済 '+dur(a):''}</span></div>`;
+    for(const t of ts){let p0=null;if(!t.start&&c.isT){p0=cur;cur+=(t.est||0)*60000;}h+=taskRow(t,p0,c.isT);}}
+  $('mn').innerHTML=h;}
+function repLabel(r){return r.type==='daily'?'毎日':r.type==='weekdays'?'平日':'毎週 '+(r.days||[]).slice().sort().map(d=>WD[d]).join('・');}
+function renderRoutine(){let h='<div class="pad"><h2>ルーチン</h2><p class="hint">設定した曜日に、その日のタスクとして自動で並びます。</p>';
+  if(!S.routines.length)h+='<div class="empty">ルーチンはまだありません。<br>右下の「＋」から追加してください。</div>';
+  const ss=secs();for(const s of ss){const rs=S.routines.filter(r=>secIdx(r.section)===secIdx(s.id));
+    for(const r of rs){const p=proj(r.projectId);h+=`<div class="card ${r.active?'':'off'}" data-act="redit" data-id="${r.id}"><div class="cb"><b>${esc(r.name)}</b>
+      <small>${esc(s.name)}・${repLabel(r)}・${r.est||0}分${p?'・'+esc(p.name):''}${r.active?'':'・停止中'}</small></div><span>›</span></div>`;}}
+  $('mn').innerHTML=h+'</div>';}
+function rangeDates(){if(range==='1')return[view];const n=+range,td=today(),a=[];for(let i=n-1;i>=0;i--)a.push(addDays(td,-i));return a;}
+function renderReview(){const ds=rangeDates();let tot=0,est=0,cnt=0;const bp={},bn={},bd=[];
+  for(const d of ds){let m=0;const day=S.days[d];if(day)for(const t of day.tasks){if(!(t.start&&t.end))continue;const a=act(t);tot+=a;est+=t.est||0;cnt++;m+=a;
+    const k=t.projectId&&proj(t.projectId)?t.projectId:'';bp[k]=(bp[k]||0)+a;bn[t.name]=(bn[t.name]||0)+a;}bd.push([d,m]);}
+  let h=`<div class="pad"><div class="seg">${[['1',view.slice(5).replace('-','/')],['7','7日間'],['30','30日間']].map(r=>`<button data-act="range" data-r="${r[0]}" class="${range===r[0]?'on':''}">${r[1]}</button>`).join('')}</div>
+   <div class="kpi"><div><b class="num">${dur(tot)}</b><span>実績合計</span></div><div><b class="num">${cnt}</b><span>完了タスク</span></div><div><b class="num">${est?Math.round(tot/est*100)+'%':'–'}</b><span>実績/見積</span></div></div>`;
+  if(ds.length>1){const mx=Math.max(1,...bd.map(x=>x[1]));h+=`<h2>日ごとの記録時間</h2><div class="days">${bd.map(x=>`<div class="${x[0]===today()?'t':''}" style="height:${x[1]/mx*100}%"></div>`).join('')}</div><p class="hint">1日平均 ${dur(tot/ds.length)}</p>`;}
+  h+='<h2>プロジェクト別</h2>';const ks=Object.keys(bp).sort((a,b)=>bp[b]-bp[a]);if(!ks.length)h+='<p class="hint">この期間の記録はありません。</p>';
+  for(const k of ks){const p=proj(k);h+=`<div class="bar"><div class="bl">${p?esc(p.name):'（なし）'}<span class="num">${dur(bp[k])}・${Math.round(bp[k]/tot*100)||0}%</span></div><div class="bt"><i style="width:${bp[k]/Math.max(1,tot)*100}%;--c:${p?esc(p.color):'#7a756b'}"></i></div></div>`;}
+  const ns=Object.keys(bn).sort((a,b)=>bn[b]-bn[a]).slice(0,8);if(ns.length){h+='<h2>時間を使ったタスク</h2>';for(const n of ns)h+=`<div class="bar"><div class="bl">${esc(n)}<span class="num">${dur(bn[n])}</span></div><div class="bt"><i style="width:${bn[n]/bn[ns[0]]*100}%"></i></div></div>`;}
+  h+=`<h2>書き出し（${view}）</h2><p class="hint">Obsidianのデイリーノートに貼れるMarkdownです。</p><div class="btns"><button class="btn pri" data-act="mdshare">共有</button><button class="btn" data-act="mdcopy">コピー</button><button class="btn" data-act="mdsave">.mdで保存</button></div></div>`;
+  $('mn').innerHTML=h;}
+function renderSetting(){const st=S.settings;
+  let h=`<div class="pad"><h2>1日の区切り</h2><div class="f"><select id="dayStart">${Array.from({length:24},(_,i)=>`<option value="${i}" ${i===st.dayStart?'selected':''}>${pad(i)}:00 に日付を切り替える</option>`).join('')}</select></div>
+  <h2>セクション</h2><div id="secl">${st.sections.map(s=>`<div class="srow" data-id="${s.id}"><input value="${esc(s.name)}" data-k="name"><input type="time" value="${s.start}" data-k="start"><button data-act="secdel" data-id="${s.id}">×</button></div>`).join('')}</div>
+  <div class="btns"><button class="btn" data-act="secadd">＋ 追加</button><button class="btn pri" data-act="secsave">保存</button></div>
+  <h2>プロジェクト</h2><div id="prjl">${S.projects.map(p=>`<div class="srow" data-id="${p.id}"><input value="${esc(p.name)}" data-k="name"><input type="color" value="${esc(p.color)}" data-k="color"><button data-act="prjdel" data-id="${p.id}">×</button></div>`).join('')}</div>
+  <div class="btns"><button class="btn" data-act="prjadd">＋ 追加</button><button class="btn pri" data-act="prjsave">保存</button></div>
+  <h2>データ</h2><p class="hint">データはこの端末の中だけに保存されます。アプリを削除すると消えるので、定期的にバックアップしてください。</p>
+  <div class="btns"><button class="btn" data-act="backup">バックアップ（JSON）</button><button class="btn" data-act="restore">復元</button><button class="btn" data-act="csv">全記録をCSVで保存</button></div>
+  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.0</p></div>`;
+  $('mn').innerHTML=h;}
+
+/* ---------- シート ---------- */
+function openSheet(h){$('sheet').innerHTML=h;$('ovl').classList.add('on');}
+function closeSheet(){$('ovl').classList.remove('on');$('sheet').innerHTML='';}
+let askCb=null;function ask(msg,cb){$('askmsg').textContent=msg;askCb=cb;$('ask').classList.add('on');}
+let tt;function toast(m){const e=$('toast');e.textContent=m;e.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),2200);}
+const prjOpts=sel=>`<option value="">（なし）</option>`+S.projects.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('');
+const secOpts=sel=>secs().map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${esc(s.name)}（${s.start}〜）</option>`).join('');
+const estField=v=>`<div class="f"><label>見積（分）</label><input id="f_est" type="number" inputmode="numeric" min="0" value="${v}"><div class="chips">${[5,10,15,30,45,60,90].map(n=>`<button data-act="chip" data-v="${n}" class="${n===v?'on':''}">${n}</button>`).join('')}</div></div>`;
+function addSheet(){const isT=view===today();
+  openSheet(`<h3>タスクを追加</h3><div class="f"><label>タスク名</label><input id="f_name" placeholder="例：洗濯物をたたむ" enterkeyhint="done"></div>${estField(15)}
+  <div class="row"><div class="f"><label>プロジェクト</label><select id="f_prj">${prjOpts('')}</select></div><div class="f"><label>セクション</label><select id="f_sec">${secOpts(isT?secAt(Date.now()).id:secs()[0].id)}</select></div></div>
+  ${isT?'<div class="f"><label class="chk"><input type="checkbox" id="f_now">いますぐ開始する（割り込み）</label></div>':''}
+  <div class="btns"><button class="btn pri" data-act="addsave">追加</button><button class="btn" data-act="close">閉じる</button></div>`);
+  setTimeout(()=>{const e=$('f_name');if(e)e.focus();},60);}
+function editSheet(id){const t=findTask(view,id);if(!t)return;const st=t.start?(t.end?'done':'run'):'todo';
+  let h=`<h3>タスクの編集</h3><input type="hidden" id="f_id" value="${t.id}"><div class="f"><label>タスク名</label><input id="f_name" value="${esc(t.name)}"></div>${estField(t.est||0)}
+  <div class="row"><div class="f"><label>プロジェクト</label><select id="f_prj">${prjOpts(t.projectId)}</select></div><div class="f"><label>セクション</label><select id="f_sec">${secOpts(t.section)}</select></div></div>`;
+  if(st!=='todo')h+=`<div class="row"><div class="f"><label>開始</label><input type="time" id="f_st" value="${hm(t.start)}"></div><div class="f"><label>終了</label><input type="time" id="f_en" value="${t.end?hm(t.end):''}" ${st==='run'?'disabled':''}></div></div>`;
+  h+=`<div class="f"><label>メモ</label><textarea id="f_note">${esc(t.note||'')}</textarea></div><div class="btns"><button class="btn pri" data-act="editsave">保存</button><button class="btn" data-act="close">閉じる</button></div><div class="btns">`;
+  if(st==='todo')h+=`<button class="btn" data-act="mv" data-d="-1">↑ 上へ</button><button class="btn" data-act="mv" data-d="1">↓ 下へ</button><button class="btn" data-act="tomorrow">翌日へ送る</button>`;
+  if(st==='done')h+=`<button class="btn" data-act="redo">もう一度やる</button><button class="btn" data-act="unstart">未着手に戻す</button>`;
+  if(!t.routineId)h+=`<button class="btn" data-act="mkroutine">ルーチンにする</button>`;
+  h+=`<button class="btn dan" data-act="del">削除</button></div>`;openSheet(h);}
+function routineSheet(id){const r=id?S.routines.find(x=>x.id===id):{id:'',name:'',est:15,projectId:'',section:secs()[0].id,type:'daily',days:[],active:true};if(!r)return;
+  openSheet(`<h3>${id?'ルーチンの編集':'ルーチンを追加'}</h3><input type="hidden" id="f_id" value="${r.id}"><div class="f"><label>タスク名</label><input id="f_name" value="${esc(r.name)}"></div>${estField(r.est||0)}
+  <div class="row"><div class="f"><label>プロジェクト</label><select id="f_prj">${prjOpts(r.projectId)}</select></div><div class="f"><label>セクション</label><select id="f_sec">${secOpts(r.section)}</select></div></div>
+  <div class="f"><label>くり返し</label><select id="f_type"><option value="daily" ${r.type==='daily'?'selected':''}>毎日</option><option value="weekdays" ${r.type==='weekdays'?'selected':''}>平日（月〜金）</option><option value="weekly" ${r.type==='weekly'?'selected':''}>曜日を指定</option></select>
+   <div class="chips" id="f_days">${WD.map((w,i)=>`<button data-act="wd" data-v="${i}" class="${(r.days||[]).includes(i)?'on':''}">${w}</button>`).join('')}</div></div>
+  <div class="f"><label class="chk"><input type="checkbox" id="f_active" ${r.active?'checked':''}>有効</label></div>
+  <div class="btns"><button class="btn pri" data-act="rsave">保存</button><button class="btn" data-act="close">閉じる</button>${id?'<button class="btn dan" data-act="rdel">削除</button>':''}</div>`);}
+const formVals=()=>({name:$('f_name').value.trim(),est:Math.max(0,Math.round(+$('f_est').value||0)),projectId:$('f_prj').value,section:$('f_sec').value});
+
+/* ---------- 書き出し ---------- */
+function markdown(date){const day=S.days[date]||{tasks:[]};const list=sorted(day);const dn=list.filter(t=>t.start&&t.end),td=list.filter(t=>!t.start);
+  const ta=dn.reduce((m,t)=>m+act(t),0),te=dn.reduce((m,t)=>m+(t.est||0),0);
+  let s=`## 流帖 ${date}（${WD[dow(date)]}）\n\n- 実績合計: ${dur(ta)} ／ 見積合計: ${dur(te)} ／ 完了: ${dn.length}件\n\n`;
+  if(dn.length){s+='| 開始 | 終了 | 実績(分) | 見積(分) | タスク | PRJ | メモ |\n|---|---|---:|---:|---|---|---|\n';
+    for(const t of dn){const p=proj(t.projectId);s+=`| ${hm(t.start)} | ${hm(t.end)} | ${act(t)} | ${t.est||0} | ${t.name.replace(/\|/g,'｜')} | ${p?p.name:''} | ${(t.note||'').replace(/\n/g,' ').replace(/\|/g,'｜')} |\n`;}}
+  if(td.length){s+='\n### 未完了\n';for(const t of td)s+=`- [ ] ${t.name}（${t.est||0}分）\n`;}return s;}
+function csv(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';let s='﻿日付,セクション,タスク,プロジェクト,見積(分),開始,終了,実績(分),メモ\n';
+  for(const d of Object.keys(S.days).sort())for(const t of sorted(S.days[d])){const p=proj(t.projectId),sc=S.settings.sections.find(x=>x.id===t.section);
+    s+=[d,sc?sc.name:'',t.name,p?p.name:'',t.est||0,t.start?hm(t.start):'',t.end?hm(t.end):'',t.start&&t.end?act(t):'',t.note||''].map(q).join(',')+'\n';}return s;}
+function saveFile(name,mime,text){if(window.Android&&Android.saveFile){Android.saveFile(name,mime,text);return;}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;a.click();}
+function copy(text){if(window.Android&&Android.copy){Android.copy(text);toast('コピーしました');return;}
+  const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('コピーしました');}catch(e){}ta.remove();}
+
+/* ---------- イベント ---------- */
+const A={
+ tab(d){tab=d.t;render();$('mn').scrollTop=0;},
+ day(d){view=+d.n?addDays(view,+d.n):today();render();},
+ add(){tab==='routine'?routineSheet(''):addSheet();},
+ close(){closeSheet();},
+ chip(d,el){$('f_est').value=d.v;el.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));},
+ wd(d,el){el.classList.toggle('on');$('f_type').value='weekly';},
+ addsave(){const v=formVals();if(!v.name){toast('タスク名を入れてください');return;}const day=dayW(view);
+  const t=Object.assign({id:uid(),start:null,end:null,note:'',routineId:null,order:nextOrder(day)},v);day.tasks.push(t);
+  const now=$('f_now')&&$('f_now').checked;save();closeSheet();if(now)startTask(view,t.id);else render();},
+ start(d){startTask(view,d.id);},
+ finish(){finishRun();},
+ pause(){pauseRun();},
+ edit(d){editSheet(d.id);},
+ editsave(){const t=findTask(view,$('f_id').value);if(!t)return;const v=formVals();if(!v.name){toast('タスク名を入れてください');return;}Object.assign(t,v);t.note=$('f_note').value;
+  if(t.start&&$('f_st')&&$('f_st').value){t.start=tsFor(view,$('f_st').value);if(t.end&&$('f_en').value){let e=tsFor(view,$('f_en').value);if(e<t.start)e+=864e5;t.end=e;}
+   if(!t.end&&t.start>Date.now())t.start=Date.now();}
+  save();closeSheet();render();},
+ mv(d){move(view,$('f_id').value,+d.d);render();toast(+d.d<0?'上へ移動':'下へ移動');},
+ tomorrow(){const id=$('f_id').value,t=findTask(view,id);if(!t)return;const nx=addDays(view,1);S.days[view].tasks=S.days[view].tasks.filter(x=>x!==t);const nd=dayW(nx);t.order=nextOrder(nd);nd.tasks.push(t);save();closeSheet();render();toast('翌日へ送りました');},
+ redo(){const t=findTask(view,$('f_id').value);if(!t)return;const td=today(),d=dayW(td);d.tasks.push({id:uid(),name:t.name,est:t.est,projectId:t.projectId,section:secAt(Date.now()).id,start:null,end:null,note:'',routineId:null,order:nextOrder(d)});save();closeSheet();view=td;render();toast('今日に追加しました');},
+ unstart(){const t=findTask(view,$('f_id').value);if(!t)return;t.start=null;t.end=null;save();closeSheet();render();},
+ mkroutine(){const t=findTask(view,$('f_id').value);if(!t)return;const r={id:uid(),name:t.name,est:t.est,projectId:t.projectId,section:t.section,type:'daily',days:[],active:true};S.routines.push(r);t.routineId=r.id;
+  dayW(view).rdone.push(r.id);save();closeSheet();render();toast('ルーチン（毎日）に登録しました');},
+ del(){const id=$('f_id').value;ask('このタスクを削除しますか？',()=>{const day=S.days[view];if(S.running&&S.running.id===id)S.running=null;day.tasks=day.tasks.filter(t=>t.id!==id);save();closeSheet();render();});},
+ carry(){const td=today(),d=dayW(td);let n=0;for(let i=14;i>=1;i--){const od=S.days[addDays(td,-i)];if(!od)continue;const mv=od.tasks.filter(t=>!t.start&&!t.routineId);od.tasks=od.tasks.filter(t=>!mv.includes(t));
+   for(const t of mv){t.order=nextOrder(d);t.section=secAt(Date.now()).id;d.tasks.push(t);n++;}}save();render();toast(n+'件を今日へ移しました');},
+ redit(d){routineSheet(d.id);},
+ rsave(){const v=formVals();if(!v.name){toast('タスク名を入れてください');return;}const id=$('f_id').value;const type=$('f_type').value;
+  const days=[...$('f_days').querySelectorAll('.on')].map(b=>+b.dataset.v);if(type==='weekly'&&!days.length){toast('曜日を選んでください');return;}
+  const o=Object.assign(v,{type,days,active:$('f_active').checked});if(id)Object.assign(S.routines.find(r=>r.id===id),o);else S.routines.push(Object.assign({id:uid()},o));save();closeSheet();render();},
+ rdel(){const id=$('f_id').value;ask('このルーチンを削除しますか？（過去の記録は残ります）',()=>{S.routines=S.routines.filter(r=>r.id!==id);save();closeSheet();render();});},
+ range(d){range=d.r;render();},
+ mdshare(){const m=markdown(view);if(window.Android&&Android.share)Android.share(m);else copy(m);},
+ mdcopy(){copy(markdown(view));},
+ mdsave(){saveFile('流帖_'+view+'.md','text/markdown',markdown(view));},
+ secadd(){$('secl').insertAdjacentHTML('beforeend',`<div class="srow" data-id="${uid()}"><input placeholder="名前" data-k="name"><input type="time" value="12:00" data-k="start"><button data-act="rowdel">×</button></div>`);},
+ rowdel(d,el){el.parentNode.remove();},
+ secdel(d,el){if($('secl').children.length<=1){toast('セクションは1つ以上必要です');return;}el.parentNode.remove();},
+ secsave(){const rows=[...$('secl').children].map(r=>({id:r.dataset.id,name:r.querySelector('[data-k=name]').value.trim(),start:r.querySelector('[data-k=start]').value})).filter(s=>s.name&&s.start);
+  if(!rows.length){toast('セクションは1つ以上必要です');return;}S.settings.sections=rows;save();render();toast('保存しました');},
+ prjadd(){$('prjl').insertAdjacentHTML('beforeend',`<div class="srow" data-id="${uid()}"><input placeholder="プロジェクト名" data-k="name"><input type="color" value="#3a5a78" data-k="color"><button data-act="rowdel">×</button></div>`);},
+ prjdel(d,el){el.parentNode.remove();},
+ prjsave(){S.projects=[...$('prjl').children].map(r=>({id:r.dataset.id,name:r.querySelector('[data-k=name]').value.trim(),color:r.querySelector('[data-k=color]').value})).filter(p=>p.name);save();render();toast('保存しました');},
+ backup(){saveFile('流帖_backup_'+today()+'.json','application/json',JSON.stringify(S,null,1));},
+ restore(){$('file').value='';$('file').click();},
+ csv(){saveFile('流帖_'+today()+'.csv','text/csv',csv());},
+ wipe(){ask('すべてのデータを消去します。元に戻せません。よろしいですか？',()=>{S=defaults();save();view=today();render();toast('消去しました');});},
+ askyes(){$('ask').classList.remove('on');const f=askCb;askCb=null;if(f)f();},
+ askno(){$('ask').classList.remove('on');askCb=null;}
+};
+document.addEventListener('click',e=>{if(e.target===$('ovl')){closeSheet();return;}const el=e.target.closest('[data-act]');if(!el)return;const f=A[el.dataset.act];if(f)f(el.dataset,el);});
+document.addEventListener('change',e=>{if(e.target.id==='dayStart'){S.settings.dayStart=+e.target.value;save();view=today();render();toast('保存しました');}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f_name'){const b=$('sheet').querySelector('.btn.pri');if(b)b.click();}});
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.days||!j.settings||!j.settings.sections)throw 0;
+  ask('現在のデータをバックアップの内容で置き換えます。よろしいですか？',()=>{S=j;if(!S.routines)S.routines=[];if(!S.projects)S.projects=[];save();view=today();render();toast('復元しました');});}catch(x){toast('流帖のバックアップファイルではありません');}};r.readAsText(f);});
+window.onAndroidBack=()=>{if($('ask').classList.contains('on')){A.askno();return true;}if($('ovl').classList.contains('on')){closeSheet();return true;}if(tab!=='today'){tab='today';render();return true;}if(view!==today()){view=today();render();return true;}return false;};
+window.onAndroidMsg=m=>toast(m);
+
+/* ---------- 時計 ---------- */
+let lastDay=today(),lastMin=-1;
+setInterval(()=>{const td=today();if(td!==lastDay){if(view===lastDay)view=td;lastDay=td;render();return;}
+  const run=runTask();const el=$('el');if(run&&el){const ms=Date.now()-run.start;el.textContent=hms(ms);el.classList.toggle('over',!!run.est&&ms>run.est*60000);}
+  const m=new Date().getMinutes();if(m!==lastMin){lastMin=m;if(!$('ovl').classList.contains('on')&&tab==='today'){const y=$('mn').scrollTop;render();$('mn').scrollTop=y;}else renderHead();}
+},1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('ovl').classList.contains('on'))render();});
+render();
+</script>
+</body>
+</html>
