@@ -243,10 +243,12 @@ function renderToday(){const c=calc();const list=sorted(c.day);const td=today();
 function repLabel(r){return r.type==='daily'?'毎日':r.type==='weekdays'?'平日':'毎週 '+(r.days||[]).slice().sort().map(d=>WD[d]).join('・');}
 function renderRoutine(){let h='<div class="pad"><h2>ルーチン</h2><p class="hint">設定した曜日に、その日のタスクとして自動で並びます。</p>';
   if(!S.routines.length)h+='<div class="empty">ルーチンはまだありません。<br>右下の「＋」から追加してください。</div>';
-  const ss=secs();for(const s of ss){const rs=S.routines.filter(r=>secIdx(r.section)===secIdx(s.id));
+  h+='</div>';const ss=secs();for(const s of ss){const rs=S.routines.filter(r=>secIdx(r.section)===secIdx(s.id));if(!rs.length)continue;
+    const e=rs.filter(r=>r.active).reduce((m,r)=>m+(r.est||0),0);
+    h+=`<div class="sec"><b>${esc(s.name)}</b><span class="num">${s.start}〜</span><span class="r num">${rs.length}件・${dur(e)}</span></div><div class="pad" style="padding-top:8px;padding-bottom:0">`;
     for(const r of rs){const p=proj(r.projectId),mo=mode(r.modeId);h+=`<div class="card ${r.active?'':'off'}" data-act="redit" data-id="${r.id}"><div class="cb"><b>${esc(r.name)}</b>
-      <small>${esc(s.name)}・${repLabel(r)}・${r.est||0}分${p?'・'+esc(p.name):''}${mo?'・'+esc(mo.name):''}${r.active?'':'・停止中'}</small></div><span>›</span></div>`;}}
-  $('mn').innerHTML=h+'</div>';}
+      <small>${repLabel(r)}・${r.est||0}分${p?'・'+esc(p.name):''}${mo?'・'+esc(mo.name):''}${r.active?'':'・停止中'}</small></div><span>›</span></div>`;}h+='</div>';}
+  $('mn').innerHTML=h;}
 function rangeDates(){if(range==='1')return[view];const n=+range,td=today(),a=[];for(let i=n-1;i>=0;i--)a.push(addDays(td,-i));return a;}
 function renderReview(){const ds=rangeDates();let tot=0,est=0,cnt=0;const bp={},bm={},bn={},bd=[];
   for(const d of ds){let m=0;const day=S.days[d];if(day)for(const t of day.tasks){if(!(t.start&&t.end))continue;const a=act(t);tot+=a;est+=t.est||0;cnt++;m+=a;
@@ -278,7 +280,7 @@ function renderSetting(){const st=S.settings;
   <h2>Googleドライブ</h2>${driveHtml()}
   <h2>データ</h2><p class="hint">データはこの端末の中に保存されます。アプリを削除すると消えるので、Googleドライブ保存かバックアップを使ってください。</p>
   <div class="btns"><button class="btn" data-act="backup">バックアップ（JSON）</button><button class="btn" data-act="restore">復元</button><button class="btn" data-act="csv">全記録をCSVで保存</button></div>
-  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.2</p></div>`;
+  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.3</p></div>`;
   $('mn').innerHTML=h;}
 
 /* ---------- シート ---------- */
