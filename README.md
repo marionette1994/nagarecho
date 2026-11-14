@@ -10,8 +10,8 @@ Ubuntu で `apt install aapt apksigner zipalign dalvik-exchange android-sdk-plat
 bash build.sh
 ```
 
-`out/nagarecho-1.1.apk` ができます。署名鍵 `release.jks` はリポジトリに含めていません（無ければビルド時に新規生成されます）。既存インストールへ上書き更新するには、初回ビルド時と同じ鍵を置いてください。
+`out/nagarecho-1.2.apk` ができます。署名鍵 `release.jks` はリポジトリに含めていません（無ければビルド時に新規生成されます）。既存インストールへ上書き更新するには、初回ビルド時と同じ鍵を置いてください。
 
 ## ダウンロード
 
-最新版APK: https://github.com/marionette1994/nagarecho/raw/main/dist/nagarecho-1.1.apk
+最新版APK: https://github.com/marionette1994/nagarecho/raw/main/dist/nagarecho.apk
