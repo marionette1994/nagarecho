@@ -79,7 +79,14 @@ h2:first-child{margin-top:0}
 .card{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
 .card .cb{flex:1;min-width:0}
 .card small{color:var(--usu);display:block;margin-top:2px}
-.card.off{opacity:.5}
+.card.off .cb{opacity:.5}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;align-self:center}
+.sw{flex:none;position:relative;width:46px;height:26px}
+.sw input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0;padding:0;z-index:1}
+.sw span{position:absolute;inset:0;border-radius:13px;background:var(--line);transition:background .15s}
+.sw span::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
+.sw input:checked+span{background:var(--shu)}
+.sw input:checked+span::after{left:23px}
 .btn{display:inline-block;border:1px solid var(--sumi);border-radius:4px;padding:9px 14px;font-size:14px;background:var(--paper)}
 .btn.pri{background:var(--shu);border-color:var(--shu);color:#fff;font-weight:700}
 .btn.dan{border-color:var(--shu);color:var(--shu)}
@@ -292,13 +299,27 @@ function dropAt(d){const day=S.days[view],t=findTask(view,d.id);if(!day||!t)retu
   else{const last=findTask(view,d.rows[d.rows.length-1].dataset.row);sec=last.section;idx=full.indexOf(last)+1;}
   if(idx<0)return;full.splice(idx,0,t);t.section=sec;full.forEach((x,i)=>{x.order=i+1;});save();}
 function repLabel(r){return r.type==='daily'?'毎日':r.type==='weekdays'?'平日':'毎週 '+(r.days||[]).slice().sort().map(d=>WD[d]).join('・');}
-function renderRoutine(){let h='<div class="pad"><h2>ルーチン</h2><p class="hint">設定した曜日に、その日のタスクとして自動で並びます。</p>';
+function renderRoutine(){const g=ui.rgroup||'sec',td=today(),ss=secs();
+  const act=S.routines.filter(r=>r.active),tsum=act.filter(r=>applies(r,td)).reduce((m,r)=>m+(r.est||0),0);
+  let h=`<div class="pad" style="padding-bottom:0"><div class="seg">${[['sec','セクション別'],['mode','モード別'],['prj','プロジェクト別']].map(x=>`<button data-act="rgroup" data-g="${x[0]}" class="${g===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
+   <div class="kpi"><div><b class="num">${act.length}</b><span>有効</span></div><div><b class="num">${S.routines.length-act.length}</b><span>停止中</span></div><div><b class="num">${dur(tsum)}</b><span>今日の分の見積</span></div></div>
+   <div class="chips" style="margin-top:10px"><button data-act="rhide" class="tg ${ui.rhide?'on':''}">${ui.rhide?'停止中を表示':'停止中を隠す'}</button></div></div>`;
   if(!S.routines.length)h+='<div class="empty">ルーチンはまだありません。<br>右下の「＋」から追加してください。</div>';
-  h+='</div>';const ss=secs();for(const s of ss){const rs=S.routines.filter(r=>secIdx(r.section)===secIdx(s.id));if(!rs.length)continue;
+  // グループの一覧（見出し名・色・絞り込み条件）
+  let groups;
+  if(g==='sec')groups=ss.map(x=>({name:x.name,sub:x.start+'〜',f:r=>secIdx(r.section)===secIdx(x.id)}));
+  else{const src=g==='mode'?S.modes:S.projects,key=g==='mode'?'modeId':'projectId';
+    groups=src.map(x=>({name:x.name,color:x.color,f:r=>r[key]===x.id}));groups.push({name:'（なし）',color:'#7a756b',f:r=>!src.some(x=>x.id===r[key])});}
+  for(const gr of groups){let rs=S.routines.filter(gr.f);if(ui.rhide)rs=rs.filter(r=>r.active);if(!rs.length)continue;
+    rs.sort((a,b)=>secIdx(a.section)-secIdx(b.section)||a.name.localeCompare(b.name,'ja'));
     const e=rs.filter(r=>r.active).reduce((m,r)=>m+(r.est||0),0);
-    h+=`<div class="sec"><b>${esc(s.name)}</b><span class="num">${s.start}〜</span><span class="r num">${rs.length}件・${dur(e)}</span></div><div class="pad" style="padding-top:8px;padding-bottom:0">`;
-    for(const r of rs){const p=proj(r.projectId),mo=mode(r.modeId);h+=`<div class="card ${r.active?'':'off'}" data-act="redit" data-id="${r.id}"><div class="cb"><b>${esc(r.name)}</b>
-      <small>${repLabel(r)}・${r.est||0}分${p?'・'+esc(p.name):''}${mo?'・'+esc(mo.name):''}${r.active?'':'・停止中'}</small></div><span>›</span></div>`;}h+='</div>';}
+    h+=`<div class="sec">${gr.color?`<i class="dot" style="background:${esc(gr.color)}"></i>`:''}<b>${esc(gr.name)}</b>${gr.sub?`<span class="num">${gr.sub}</span>`:''}<span class="r num">${rs.length}件・${dur(e)}</span></div><div class="pad" style="padding-top:8px;padding-bottom:0">`;
+    for(const r of rs){const p=proj(r.projectId),mo=mode(r.modeId),sc=ss[secIdx(r.section)];
+      const bits=[];if(g!=='sec'&&sc)bits.push(esc(sc.name));bits.push(repLabel(r),(r.est||0)+'分');
+      h+=`<div class="card ${r.active?'':'off'}"><div class="cb" data-act="redit" data-id="${r.id}"><b>${esc(r.name)}</b><small>${bits.join('・')}${r.active?'':'・停止中'}</small>
+       <div class="tm" style="margin-top:4px;display:flex;gap:6px">${g!=='prj'&&p?`<span class="pj" style="--c:${esc(p.color)}">${esc(p.name)}</span>`:''}${g!=='mode'&&mo?`<span class="md" style="--c:${esc(mo.color)}">${esc(mo.name)}</span>`:''}</div></div>
+       <label class="sw"><input type="checkbox" data-rt="${r.id}" ${r.active?'checked':''}><span></span></label></div>`;}
+    h+='</div>';}
   $('mn').innerHTML=h;}
 function rangeDates(){if(range==='1')return[view];const n=+range,td=today(),a=[];for(let i=n-1;i>=0;i--)a.push(addDays(td,-i));return a;}
 function renderReview(){const ds=rangeDates();let tot=0,est=0,cnt=0;const bp={},bm={},bn={},bd=[];
@@ -335,7 +356,7 @@ function renderSetting(){const st=S.settings;
   <h2>Googleドライブ</h2>${driveHtml()}
   <h2>データ</h2><p class="hint">データはこの端末の中に保存されます。アプリを削除すると消えるので、Googleドライブ保存かバックアップを使ってください。</p>
   <div class="btns"><button class="btn" data-act="backup">バックアップ（JSON）</button><button class="btn" data-act="restore">復元</button><button class="btn" data-act="csv">全記録をCSVで保存</button></div>
-  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.6</p></div>`;
+  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.7</p></div>`;
   $('mn').innerHTML=h;}
 
 /* ---------- シート ---------- */
@@ -434,6 +455,8 @@ const A={
  carry(){const td=today(),d=dayW(td);let n=0;for(let i=14;i>=1;i--){const od=S.days[addDays(td,-i)];if(!od)continue;const mv=od.tasks.filter(t=>!t.start&&!t.routineId);od.tasks=od.tasks.filter(t=>!mv.includes(t));
    for(const t of mv){t.order=nextOrder(d);t.section=secAt(Date.now()).id;d.tasks.push(t);n++;}}save();render();toast(n+'件を今日へ移しました');},
  redit(d){routineSheet(d.id);},
+ rgroup(d){ui.rgroup=d.g;saveUi();render();$('mn').scrollTop=0;},
+ rhide(){ui.rhide=!ui.rhide;saveUi();render();},
  rsave(){const v=formVals();if(!v.name){toast('タスク名を入れてください');return;}const id=$('f_id').value;const type=$('f_type').value;
   const days=[...$('f_days').querySelectorAll('.on')].map(b=>+b.dataset.v);if(type==='weekly'&&!days.length){toast('曜日を選んでください');return;}
   const o=Object.assign(v,{type,days,active:$('f_active').checked});if(id)Object.assign(S.routines.find(r=>r.id===id),o);else S.routines.push(Object.assign({id:uid()},o));save();closeSheet();render();},
@@ -463,7 +486,7 @@ const A={
  askno(){$('ask').classList.remove('on');askCb=null;}
 };
 document.addEventListener('click',e=>{if(e.target===$('ovl')){closeSheet();return;}const el=e.target.closest('[data-act]');if(!el)return;const f=A[el.dataset.act];if(f)f(el.dataset,el);});
-document.addEventListener('change',e=>{if(e.target.id==='optMulti'){S.settings.multi=e.target.checked;save();return;}if(e.target.id==='optPrev'){S.settings.startFromPrev=e.target.checked;save();return;}if(e.target.id==='autoSync'){S.settings.autoSync=e.target.checked;localStorage.setItem(KEY,JSON.stringify(S));return;}if(e.target.id==='dayStart'){S.settings.dayStart=+e.target.value;save();view=today();render();toast('保存しました');}});
+document.addEventListener('change',e=>{if(e.target.dataset.rt){const r=S.routines.find(x=>x.id===e.target.dataset.rt);if(r){r.active=e.target.checked;save();const y=$('mn').scrollTop;render();$('mn').scrollTop=y;toast(r.active?'有効にしました':'停止しました');}return;}if(e.target.id==='optMulti'){S.settings.multi=e.target.checked;save();return;}if(e.target.id==='optPrev'){S.settings.startFromPrev=e.target.checked;save();return;}if(e.target.id==='autoSync'){S.settings.autoSync=e.target.checked;localStorage.setItem(KEY,JSON.stringify(S));return;}if(e.target.id==='dayStart'){S.settings.dayStart=+e.target.value;save();view=today();render();toast('保存しました');}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f_name'){const b=$('sheet').querySelector('.btn.pri');if(b)b.click();}});
 $('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.days||!j.settings||!j.settings.sections)throw 0;
   ask('現在のデータをバックアップの内容で置き換えます。よろしいですか？',()=>{S=j;if(!S.modes)S.modes=defModes();if(!S.inbox)S.inbox=[];fixRuns(S);if(!S.routines)S.routines=[];if(!S.projects)S.projects=[];save();view=today();render();toast('復元しました');});}catch(x){toast('流帖のバックアップファイルではありません');}};r.readAsText(f);});
