@@ -21,6 +21,7 @@ for name,sz in (('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)):
     big.resize((sz,sz),Image.LANCZOS).save(f'res/mipmap-{name}/ic_launcher.png')
 EOF
 
+node -e "const s=require('fs').readFileSync('assets/index.html','utf8');new Function(s.slice(s.indexOf('<script>')+8,s.indexOf('</script>')))" || { echo "JS syntax error"; exit 1; }
 aapt package -f -m -J gen -M AndroidManifest.xml -S res -I $JAR
 javac -nowarn -source 8 -target 8 -bootclasspath $JAR -d obj $(find src gen -name '*.java') 2>&1 | grep -v -E '^(warning|Note|[0-9]+ warning)' || true
 dalvik-exchange --dex --min-sdk-version=23 --output=out/classes.dex obj
@@ -28,7 +29,7 @@ aapt package -f -M AndroidManifest.xml -S res -A assets -I $JAR -0 arsc -F out/u
 (cd out && aapt add u.apk classes.dex >/dev/null)
 zipalign -f 4 out/u.apk out/a.apk
 [ -f release.jks ] || keytool -genkeypair -keystore release.jks -storepass nagarecho -keypass nagarecho -alias nagare -keyalg RSA -keysize 2048 -validity 20000 -dname "CN=Nagarecho" 2>/dev/null
-apksigner sign --ks release.jks --ks-pass pass:nagarecho --key-pass pass:nagarecho --out out/nagarecho-1.5.apk out/a.apk
-apksigner verify -v out/nagarecho-1.5.apk | head -5
-aapt dump badging out/nagarecho-1.5.apk | head -8
-ls -la out/nagarecho-1.5.apk; unzip -l out/nagarecho-1.5.apk
+apksigner sign --ks release.jks --ks-pass pass:nagarecho --key-pass pass:nagarecho --out out/nagarecho-1.6.apk out/a.apk
+apksigner verify -v out/nagarecho-1.6.apk | head -5
+aapt dump badging out/nagarecho-1.6.apk | head -8
+ls -la out/nagarecho-1.6.apk; unzip -l out/nagarecho-1.6.apk
