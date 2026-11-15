@@ -35,6 +35,8 @@ nav button.on{color:var(--shu);font-weight:700;box-shadow:inset 0 2px 0 var(--sh
 .runbar .el{font-size:22px;font-weight:700}
 .runbar .el.over{color:#ff9b8a}
 .runbar button{border:1px solid var(--washi);border-radius:4px;padding:7px 10px;font-size:13px;color:var(--washi)}
+.runbar{flex-wrap:wrap}
+.runbar button.snapb{flex-basis:100%;border:0;border-top:1px solid rgba(244,239,228,.25);border-radius:0;padding:8px 0 0;font-size:12px;text-align:left;color:#f0c9a8}
 .runbar button.fin{background:var(--shu);border-color:var(--shu)}
 .banner{margin:10px 14px 0;padding:9px 12px;border:1px dashed var(--shu);border-radius:4px;display:flex;align-items:center;gap:8px;font-size:13px}
 .banner button{margin-left:auto;color:var(--shu);font-weight:700;white-space:nowrap}
@@ -186,7 +188,12 @@ function findTask(date,id){const d=S.days[date];return d?d.tasks.find(t=>t.id===
 function runTask(){if(!S.running)return null;const t=findTask(S.running.date,S.running.id);if(!t||!t.start||t.end){S.running=null;return null;}return t;}
 
 /* ---------- 操作 ---------- */
-function startTask(date,id){const now=Date.now();const cur=runTask();if(cur)cur.end=now;
+// 今日（論理日）の中で、直近に終了したタスクの終了時刻。なければ0
+function prevEnd(exId){const td=today(),base=new Date(td+'T00:00:00');base.setHours(S.settings.dayStart,0,0,0);const lo=base.getTime(),now=Date.now();let m=0;
+  for(const d of [td,addDays(td,-1)]){const day=S.days[d];if(day)for(const t of day.tasks)if(t.id!==exId&&t.end&&t.end>=lo&&t.end<=now&&t.end>m)m=t.end;}return m;}
+function startTask(date,id,fromPrev){let now=Date.now();const cur=runTask();if(cur)cur.end=now;
+  if(fromPrev===undefined)fromPrev=!!S.settings.startFromPrev;
+  if(!cur&&fromPrev){const pe=prevEnd(id);if(pe&&pe<now){now=pe;toast(hm(pe)+' から開始（前タスクの終了時刻）');}}
   let t=findTask(date,id);if(!t)return;const td=today();
   if(date!==td){S.days[date].tasks=S.days[date].tasks.filter(x=>x!==t);dayW(td).tasks.push(t);date=td;}
   t.start=now;t.end=null;t.section=secAt(now).id;S.running={date,id:t.id};save();render();}
@@ -235,7 +242,7 @@ function taskRow(t,proj0,isT){const p=proj(t.projectId),mo=mode(t.modeId);const 
 function renderToday(){const c=calc();const list=sorted(c.day);const td=today();let h='';
   const run=c.run;
   if(run){const el=Date.now()-run.start;h+=`<div class="runbar"><div class="rn"><b>${esc(run.name)}</b><span class="num">${hm(run.start)}開始・見積 ${run.est||0}分</span></div>
-    <div class="el num ${el>(run.est||0)*60000&&run.est?'over':''}" id="el">${hms(el)}</div><button data-act="pause">中断</button><button class="fin" data-act="finish">完了</button></div>`;}
+    <div class="el num ${el>(run.est||0)*60000&&run.est?'over':''}" id="el">${hms(el)}</div><button data-act="pause">中断</button><button class="fin" data-act="finish">完了</button>${(()=>{const pe=prevEnd(run.id);return pe&&run.start-pe>=60000?`<button class="snapb" data-act="snap">⇤ 開始を前タスクの終了時刻（${hm(pe)}）に合わせる</button>`:'';})()}</div>`;}
   if(c.isT){let n=0;for(let i=1;i<=14;i++){const d=S.days[addDays(td,-i)];if(d)n+=d.tasks.filter(t=>!t.start&&!t.routineId).length;}
     if(n)h+=`<div class="banner">過去の未完了が ${n}件あります<button data-act="carry">今日へ移す</button></div>`;}
   const SS=secs();if(ui.sec&&!SS.some(s=>s.id===ui.sec))ui.sec='';
@@ -307,6 +314,8 @@ function driveHtml(){if(!(window.Android&&Android.linkName))return '<p class="hi
   <p class="hint">別の端末や入れ直し後は、下の「復元」でドライブ上のこのファイルを選ぶと元に戻せます。</p>`;}
 function renderSetting(){const st=S.settings;
   let h=`<div class="pad"><h2>1日の区切り</h2><div class="f"><select id="dayStart">${Array.from({length:24},(_,i)=>`<option value="${i}" ${i===st.dayStart?'selected':''}>${pad(i)}:00 に日付を切り替える</option>`).join('')}</select></div>
+  <div class="f"><label class="chk"><input type="checkbox" id="optPrev" ${st.startFromPrev?'checked':''}>▶ で開始するとき、前のタスクの終了時刻を開始時刻にする</label></div>
+  <p class="hint">オフのときも、開始後に上部の黒いバーから前タスクの終了時刻に合わせられます。対象は今日（1日の区切り以降）に終了したタスクです。</p>
   <h2>セクション</h2><div id="secl">${st.sections.map(s=>`<div class="srow" data-id="${s.id}"><input value="${esc(s.name)}" data-k="name"><input type="time" value="${s.start}" data-k="start"><button data-act="secdel" data-id="${s.id}">×</button></div>`).join('')}</div>
   <div class="btns"><button class="btn" data-act="secadd">＋ 追加</button><button class="btn pri" data-act="secsave">保存</button></div>
   <h2>プロジェクト</h2><div id="prjl">${S.projects.map(p=>`<div class="srow" data-id="${p.id}"><input value="${esc(p.name)}" data-k="name"><input type="color" value="${esc(p.color)}" data-k="color"><button data-act="prjdel" data-id="${p.id}">×</button></div>`).join('')}</div>
@@ -316,7 +325,7 @@ function renderSetting(){const st=S.settings;
   <h2>Googleドライブ</h2>${driveHtml()}
   <h2>データ</h2><p class="hint">データはこの端末の中に保存されます。アプリを削除すると消えるので、Googleドライブ保存かバックアップを使ってください。</p>
   <div class="btns"><button class="btn" data-act="backup">バックアップ（JSON）</button><button class="btn" data-act="restore">復元</button><button class="btn" data-act="csv">全記録をCSVで保存</button></div>
-  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.4</p></div>`;
+  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.5</p></div>`;
   $('mn').innerHTML=h;}
 
 /* ---------- シート ---------- */
@@ -340,6 +349,7 @@ function editSheet(id){const t=findTask(view,id);if(!t)return;const st=t.start?(
   ${cls(t.projectId,t.modeId,t.section)}`;
   if(st!=='todo')h+=`<div class="row"><div class="f"><label>開始</label><input type="time" id="f_st" value="${hm(t.start)}"></div><div class="f"><label>終了</label><input type="time" id="f_en" value="${t.end?hm(t.end):''}" ${st==='run'?'disabled':''}></div></div>`;
   h+=`<div class="f"><label>メモ</label><textarea id="f_note">${esc(t.note||'')}</textarea></div><div class="btns"><button class="btn pri" data-act="editsave">保存</button><button class="btn" data-act="close">閉じる</button></div><div class="btns">`;
+  if(st==='todo'&&view===today()&&!runTask()){const pe=prevEnd(t.id);if(pe)h+=`<button class="btn" data-act="startprev">▶ 前タスク終了（${hm(pe)}）から開始</button>`;}
   if(st==='todo')h+=`<button class="btn" data-act="mv" data-d="-1">↑ 上へ</button><button class="btn" data-act="mv" data-d="1">↓ 下へ</button><button class="btn" data-act="tomorrow">翌日へ送る</button><button class="btn" data-act="toinbox">やることへ戻す</button>`;
   if(st==='done')h+=`<button class="btn" data-act="redo">もう一度やる</button><button class="btn" data-act="unstart">未着手に戻す</button>`;
   if(!t.routineId)h+=`<button class="btn" data-act="mkroutine">ルーチンにする</button>`;
@@ -394,6 +404,8 @@ const A={
  fsec(d){ui.sec=d.s;saveUi();render();},
  hidedone(){ui.hideDone=!ui.hideDone;saveUi();render();},
  start(d){startTask(view,d.id);},
+ startprev(){const id=$('f_id').value;closeSheet();startTask(view,id,true);},
+ snap(){const t=runTask();if(!t)return;const pe=prevEnd(t.id);if(!pe||pe>=t.start)return;t.start=pe;t.section=secAt(pe).id;save();render();toast('開始を '+hm(pe)+' に合わせました');},
  finish(){finishRun();},
  pause(){pauseRun();},
  edit(d){editSheet(d.id);},
@@ -440,7 +452,7 @@ const A={
  askno(){$('ask').classList.remove('on');askCb=null;}
 };
 document.addEventListener('click',e=>{if(e.target===$('ovl')){closeSheet();return;}const el=e.target.closest('[data-act]');if(!el)return;const f=A[el.dataset.act];if(f)f(el.dataset,el);});
-document.addEventListener('change',e=>{if(e.target.id==='autoSync'){S.settings.autoSync=e.target.checked;localStorage.setItem(KEY,JSON.stringify(S));return;}if(e.target.id==='dayStart'){S.settings.dayStart=+e.target.value;save();view=today();render();toast('保存しました');}});
+document.addEventListener('change',e=>{if(e.target.id==='optPrev'){S.settings.startFromPrev=e.target.checked;save();return;}if(e.target.id==='autoSync'){S.settings.autoSync=e.target.checked;localStorage.setItem(KEY,JSON.stringify(S));return;}if(e.target.id==='dayStart'){S.settings.dayStart=+e.target.value;save();view=today();render();toast('保存しました');}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f_name'){const b=$('sheet').querySelector('.btn.pri');if(b)b.click();}});
 $('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.days||!j.settings||!j.settings.sections)throw 0;
   ask('現在のデータをバックアップの内容で置き換えます。よろしいですか？',()=>{S=j;if(!S.modes)S.modes=defModes();if(!S.inbox)S.inbox=[];if(!S.routines)S.routines=[];if(!S.projects)S.projects=[];save();view=today();render();toast('復元しました');});}catch(x){toast('流帖のバックアップファイルではありません');}};r.readAsText(f);});
