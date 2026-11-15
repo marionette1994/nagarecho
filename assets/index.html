@@ -252,7 +252,7 @@ function taskRow(t,proj0,isT){const p=proj(t.projectId),mo=mode(t.modeId);const 
    <div class="arr"><button data-act="mvrow" data-id="${t.id}" data-d="-1">↑</button><button data-act="mvrow" data-id="${t.id}" data-d="1">↓</button></div></div>`;
   return `<div class="task ${st}"><button class="go" data-act="${st==='todo'?(isT?'start':'edit'):st==='run'?'finish':'edit'}" data-id="${t.id}">${btn}</button>
    <div class="tb" data-act="edit" data-id="${t.id}"><div class="tn">${t.routineId?'↻ ':''}${esc(t.name)}</div>
-   <div class="tm">${p?`<span class="pj" style="--c:${esc(p.color)}">${esc(p.name)}</span>`:''}${mo?`<span class="md" style="--c:${esc(mo.color)}">${esc(mo.name)}</span>`:''}<span class="num">${meta}</span></div></div>
+   <div class="tm">${p?`<span class="pj" style="--c:${esc(p.color)}">${esc(p.name)}</span>`:''}${mo?`<span class="md" style="--c:${esc(mo.color)}">${esc(mo.name)}</span>`:''}${st==='todo'&&t.calBegin?`<span class="num">定刻 ${hm(t.calBegin)}</span>`:''}<span class="num">${meta}</span></div></div>
    <div class="tt num">${st==='done'?`<b class="${over?'over':''}">${a}</b>/${t.est||0}分`:`<b>${t.est||0}</b>分`}</div></div>`;}
 function renderToday(){const c=calc();const list=sorted(c.day);const td=today();let h='';
   if(c.rs.length)h+='<div class="runwrap">';
@@ -263,7 +263,7 @@ function renderToday(){const c=calc();const list=sorted(c.day);const td=today();
     if(n)h+=`<div class="banner">過去の未完了が ${n}件あります<button data-act="carry">今日へ移す</button></div>`;}
   const SS=secs();if(ui.sec&&!SS.some(s=>s.id===ui.sec))ui.sec='';
   const nDone=list.filter(t=>t.start&&t.end).length;
-  h+=`<div class="chips flt"><button data-act="fsec" data-s="" class="${ui.sec?'':'on'}">すべて</button>${SS.map(s=>{const n=list.filter(t=>secIdx(t.section)===secIdx(s.id)&&!(t.start&&t.end)).length;return `<button data-act="fsec" data-s="${s.id}" class="${ui.sec===s.id?'on':''}">${esc(s.name)}${n?' '+n:''}</button>`;}).join('')}<span class="sp"></span><button data-act="multi" class="tg ${S.settings.multi?'on':''}">${S.settings.multi?'並行 ON':'並行'}</button><button data-act="sortmode" class="tg ${sortMode?'on':''}">${sortMode?'並べ替え終了':'並べ替え'}</button><button data-act="hidedone" class="tg ${ui.hideDone?'on':''}">${ui.hideDone?'完了を表示'+(nDone?' '+nDone:''):'完了を隠す'}</button></div>`;
+  h+=`<div class="chips flt"><button data-act="fsec" data-s="" class="${ui.sec?'':'on'}">すべて</button>${SS.map(s=>{const n=list.filter(t=>secIdx(t.section)===secIdx(s.id)&&!(t.start&&t.end)).length;return `<button data-act="fsec" data-s="${s.id}" class="${ui.sec===s.id?'on':''}">${esc(s.name)}${n?' '+n:''}</button>`;}).join('')}<span class="sp"></span>${hasCal()?'<button data-act="calimport" class="tg">予定を取り込む</button>':''}<button data-act="multi" class="tg ${S.settings.multi?'on':''}">${S.settings.multi?'並行 ON':'並行'}</button><button data-act="sortmode" class="tg ${sortMode?'on':''}">${sortMode?'並べ替え終了':'並べ替え'}</button><button data-act="hidedone" class="tg ${ui.hideDone?'on':''}">${ui.hideDone?'完了を表示'+(nDone?' '+nDone:''):'完了を隠す'}</button></div>`;
   if(sortMode)h+=`<p class="hint" style="margin:6px 14px 0">☰ を押したまま上下に動かすか、↑↓ で順番を変えられます（未着手のタスクのみ）。</p>`;
   if(!list.length)h+=`<div class="empty">まだタスクがありません。<br>右下の「＋」から追加してください。</div>`;
   let cur=c.cur,shown=0;const nowSec=c.isT?secAt(Date.now()).id:null;
@@ -290,6 +290,23 @@ function inboxSheet(id){const t=id?S.inbox.find(x=>x.id===id):{id:'',name:'',est
   <div class="btns"><button class="btn pri" data-act="isave">${id?'保存':'追加'}</button><button class="btn" data-act="close">閉じる</button></div>
   ${id?'<div class="btns"><button class="btn" data-act="itoday">今日のリストへ</button><button class="btn" data-act="imv" data-d="-1">↑ 上へ</button><button class="btn" data-act="imv" data-d="1">↓ 下へ</button><button class="btn dan" data-act="idel">削除</button></div>':''}`);
   if(!id)setTimeout(()=>{const e=$('f_name');if(e)e.focus();},60);}
+/* ---------- カレンダーの予定の取り込み ---------- */
+const hasCal=()=>!!(window.Android&&Android.calRequest);
+let calMode='import',calEvs=[];
+function dayRange(date){const a=tsFor(date,pad(S.settings.dayStart)+':00');return[a,a+864e5];}
+function calAsk(mode){calMode=mode;const r=dayRange(view);if(mode==='import')toast('予定を読み込み中…');Android.calRequest(String(r[0]),String(r[1]));}
+const calKey=e=>e.id+'@'+e.begin;
+function calSheet(evs){const r=dayRange(view),skip=S.settings.calSkip||[];
+  calEvs=evs.filter(e=>!e.allDay&&e.status!==2&&e.self!==2&&e.begin>=r[0]&&e.begin<r[1]&&!skip.includes(String(e.calId))).sort((a,b)=>a.begin-b.begin);
+  if(!calEvs.length){toast('この日に取り込める予定はありません');return;}
+  const done=(S.days[view]&&S.days[view].cal)||[];
+  openSheet(`<h3>カレンダーの予定（${view.slice(5).replace('-','/')}）</h3>${calEvs.map((e,i)=>{const d=done.includes(calKey(e));
+    return `<div class="f"><label class="chk" style="align-items:flex-start"><input type="checkbox" data-ce="${i}" ${d?'':'checked'} style="margin-top:3px"><span><b style="font-weight:700">${esc(e.title||'（無題の予定）')}</b><br><small style="color:var(--usu)" class="num">${hm(e.begin)}–${hm(e.end)}・${dur(Math.max(1,(e.end-e.begin)/60000))}${e.calName?'・'+esc(e.calName):''}${d?'・取り込み済み':''}</small></span></label></div>`;}).join('')}
+  <div class="btns"><button class="btn pri" data-act="calsave">取り込む</button><button class="btn" data-act="close">閉じる</button></div>
+  <p class="hint">チェックした予定を、この日の未着手タスクとして追加します（見積＝予定の長さ、セクション＝開始時刻）。終日・辞退済み・中止の予定と、設定で外したカレンダーは表示していません。</p>`);}
+window.onAndroidCal=res=>{if(!res||!res.ok){toast(res&&res.error==='denied'?'カレンダーの読み取りが許可されていません。端末の設定でこのアプリの権限を許可してください':'カレンダーを読み取れませんでした');return;}
+  S.settings.cals=(res.calendars||[]).map(c=>({id:String(c.id),name:c.name||'',account:c.account||''}));save();
+  if(calMode==='list'){render();toast('カレンダー一覧を更新しました');return;}calSheet(res.events||[]);};
 /* ---------- やることの一括登録 ---------- */
 function parseEst(v){v=String(v==null?'':v).trim();if(!v)return null;let m;
   if(m=v.match(/^(\d+):(\d{1,2})$/))return +m[1]*60+ +m[2];
@@ -399,10 +416,13 @@ function renderSetting(){const st=S.settings;
   <div class="btns"><button class="btn" data-act="prjadd">＋ 追加</button><button class="btn pri" data-act="prjsave">保存</button></div>
   <h2>モード</h2><p class="hint">タスクを「どんな状態で取り組むか」で分類します（プロジェクトとは別軸）。ふりかえりでモード別の時間を確認できます。</p><div id="modl">${S.modes.map(p=>`<div class="srow" data-id="${p.id}"><input value="${esc(p.name)}" data-k="name"><input type="color" value="${esc(p.color)}" data-k="color"><button data-act="rowdel">×</button></div>`).join('')}</div>
   <div class="btns"><button class="btn" data-act="modadd">＋ 追加</button><button class="btn pri" data-act="modsave">保存</button></div>
+  <h2>カレンダー</h2>${hasCal()?`<p class="hint">今日の画面の「予定を取り込む」で、端末に同期されているカレンダー（Googleカレンダーなど）の予定を、その日のタスクとして追加できます。初回はカレンダーの読み取りを許可してください。取り込みたくないカレンダーはチェックを外します。</p>
+   ${(st.cals||[]).map(c=>`<div class="f"><label class="chk"><input type="checkbox" data-cal="${esc(c.id)}" ${(st.calSkip||[]).includes(c.id)?'':'checked'}>${esc(c.name)}${c.account&&c.account!==c.name?`<small style="color:var(--usu)">　${esc(c.account)}</small>`:''}</label></div>`).join('')}
+   <div class="btns"><button class="btn" data-act="callist">${(st.cals||[]).length?'カレンダー一覧を更新':'カレンダー一覧を読み込む'}</button></div>`:'<p class="hint">Androidアプリ版で使えます。</p>'}
   <h2>Googleドライブ</h2>${driveHtml()}
   <h2>データ</h2><p class="hint">データはこの端末の中に保存されます。アプリを削除すると消えるので、Googleドライブ保存かバックアップを使ってください。</p>
   <div class="btns"><button class="btn" data-act="backup">バックアップ（JSON）</button><button class="btn" data-act="restore">復元</button><button class="btn" data-act="csv">全記録をCSVで保存</button></div>
-  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.8</p></div>`;
+  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.9</p></div>`;
   $('mn').innerHTML=h;}
 
 /* ---------- シート ---------- */
@@ -469,6 +489,13 @@ const A={
  sortmode(){sortMode=!sortMode;render();},
  mvrow(d){move(view,d.id,+d.d);render();},
  iedit(d){inboxSheet(d.id);},
+ calimport(){calAsk('import');},
+ callist(){calAsk('list');},
+ calsave(){const pick=[...$('sheet').querySelectorAll('[data-ce]')].filter(x=>x.checked).map(x=>calEvs[+x.dataset.ce]);if(!pick.length){toast('予定が選ばれていません');return;}
+  const day=dayW(view);if(!day.cal)day.cal=[];
+  for(const e of pick){day.tasks.push({id:uid(),name:e.title||'（無題の予定）',est:Math.max(1,Math.round((e.end-e.begin)/60000)),projectId:'',modeId:'',section:secAt(e.begin).id,start:null,end:null,
+    note:'予定 '+hm(e.begin)+'–'+hm(e.end)+(e.calName?'（'+e.calName+'）':''),routineId:null,order:nextOrder(day),calBegin:e.begin});if(!day.cal.includes(calKey(e)))day.cal.push(calKey(e));}
+  save();closeSheet();render();toast(pick.length+'件の予定を取り込みました');},
  ibulk(){bulkSheet();},
  ibulkfile(){$('ifile').value='';$('ifile').click();},
  ibulksave(){const items=parseBulk($('f_bulk').value);if(!items.length){toast('登録できる行がありません');return;}
@@ -540,7 +567,7 @@ const A={
  askno(){$('ask').classList.remove('on');askCb=null;}
 };
 document.addEventListener('click',e=>{if(e.target===$('ovl')){closeSheet();return;}const el=e.target.closest('[data-act]');if(!el)return;const f=A[el.dataset.act];if(f)f(el.dataset,el);});
-document.addEventListener('change',e=>{if(e.target.dataset.rt){const r=S.routines.find(x=>x.id===e.target.dataset.rt);if(r){r.active=e.target.checked;save();const y=$('mn').scrollTop;render();$('mn').scrollTop=y;toast(r.active?'有効にしました':'停止しました');}return;}if(e.target.id==='optMulti'){S.settings.multi=e.target.checked;save();return;}if(e.target.id==='optPrev'){S.settings.startFromPrev=e.target.checked;save();return;}if(e.target.id==='autoSync'){S.settings.autoSync=e.target.checked;localStorage.setItem(KEY,JSON.stringify(S));return;}if(e.target.id==='dayStart'){S.settings.dayStart=+e.target.value;save();view=today();render();toast('保存しました');}});
+document.addEventListener('change',e=>{if(e.target.dataset.cal){const id=e.target.dataset.cal;const sk=(S.settings.calSkip||[]).filter(x=>x!==id);if(!e.target.checked)sk.push(id);S.settings.calSkip=sk;save();return;}if(e.target.dataset.rt){const r=S.routines.find(x=>x.id===e.target.dataset.rt);if(r){r.active=e.target.checked;save();const y=$('mn').scrollTop;render();$('mn').scrollTop=y;toast(r.active?'有効にしました':'停止しました');}return;}if(e.target.id==='optMulti'){S.settings.multi=e.target.checked;save();return;}if(e.target.id==='optPrev'){S.settings.startFromPrev=e.target.checked;save();return;}if(e.target.id==='autoSync'){S.settings.autoSync=e.target.checked;localStorage.setItem(KEY,JSON.stringify(S));return;}if(e.target.id==='dayStart'){S.settings.dayStart=+e.target.value;save();view=today();render();toast('保存しました');}});
 document.addEventListener('input',e=>{if(e.target.id==='f_bulk')bulkPreview();});
 $('ifile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{let t;const buf=new Uint8Array(r.result);
   try{t=new TextDecoder('utf-8',{fatal:true}).decode(buf);}catch(x){try{t=new TextDecoder('shift_jis').decode(buf);}catch(y){t=new TextDecoder().decode(buf);}}

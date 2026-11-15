@@ -1,6 +1,10 @@
 package jp.marionette.nagarecho;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.ContentUris;
+import android.content.pm.PackageManager;
+import android.provider.CalendarContract;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -18,10 +22,16 @@ import android.webkit.WebViewClient;
 
 import java.io.OutputStream;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 public class MainActivity extends Activity {
     private static final int REQ_PICK = 1;
     private static final int REQ_SAVE = 2;
     private static final int REQ_LINK = 3;
+    private static final int REQ_PERM_CAL = 10;
+    private long calFrom;
+    private long calTo;
     private static final String PREF = "nagarecho";
     private static final String PREF_URI = "driveUri";
 
@@ -161,6 +171,86 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        if (req != REQ_PERM_CAL) return;
+        if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+            queryCalendar();
+        } else {
+            calReply("{\"ok\":false,\"error\":\"denied\"}");
+        }
+    }
+
+    private void calReply(final String json) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                web.evaluateJavascript("window.onAndroidCal && window.onAndroidCal(" + json + ")", null);
+            }
+        });
+    }
+
+    // 端末に同期されているカレンダーから、指定期間の予定とカレンダー一覧を読む
+    private void queryCalendar() {
+        final long from = calFrom;
+        final long to = calTo;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    JSONObject out = new JSONObject();
+                    JSONArray cals = new JSONArray();
+                    Cursor c = getContentResolver().query(CalendarContract.Calendars.CONTENT_URI,
+                            new String[]{CalendarContract.Calendars._ID, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                                    CalendarContract.Calendars.ACCOUNT_NAME}, null, null, null);
+                    if (c != null) {
+                        while (c.moveToNext()) {
+                            JSONObject o = new JSONObject();
+                            o.put("id", c.getLong(0));
+                            o.put("name", c.getString(1) == null ? "" : c.getString(1));
+                            o.put("account", c.getString(2) == null ? "" : c.getString(2));
+                            cals.put(o);
+                        }
+                        c.close();
+                    }
+                    JSONArray evs = new JSONArray();
+                    Uri.Builder b = CalendarContract.Instances.CONTENT_URI.buildUpon();
+                    ContentUris.appendId(b, from);
+                    ContentUris.appendId(b, to);
+                    Cursor e = getContentResolver().query(b.build(),
+                            new String[]{CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.TITLE,
+                                    CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
+                                    CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.CALENDAR_ID,
+                                    CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
+                                    CalendarContract.Instances.SELF_ATTENDEE_STATUS, CalendarContract.Instances.STATUS},
+                            null, null, CalendarContract.Instances.BEGIN + " ASC");
+                    if (e != null) {
+                        while (e.moveToNext()) {
+                            JSONObject o = new JSONObject();
+                            o.put("id", e.getLong(0));
+                            o.put("title", e.getString(1) == null ? "" : e.getString(1));
+                            o.put("begin", e.getLong(2));
+                            o.put("end", e.getLong(3));
+                            o.put("allDay", e.getInt(4) != 0);
+                            o.put("calId", e.getLong(5));
+                            o.put("calName", e.getString(6) == null ? "" : e.getString(6));
+                            o.put("self", e.getInt(7));
+                            o.put("status", e.getInt(8));
+                            evs.put(o);
+                        }
+                        e.close();
+                    }
+                    out.put("ok", true);
+                    out.put("calendars", cals);
+                    out.put("events", evs);
+                    calReply(out.toString());
+                } catch (Exception ex) {
+                    calReply("{\"ok\":false,\"error\":\"error\"}");
+                }
+            }
+        }).start();
+    }
+
     private String linkedUri() {
         return getSharedPreferences(PREF, MODE_PRIVATE).getString(PREF_URI, "");
     }
@@ -256,6 +346,27 @@ public class MainActivity extends Activity {
                 }
             }
             getSharedPreferences(PREF, MODE_PRIVATE).edit().remove(PREF_URI).apply();
+        }
+
+        @JavascriptInterface
+        public void calRequest(final String from, final String to) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        calFrom = Long.parseLong(from);
+                        calTo = Long.parseLong(to);
+                    } catch (NumberFormatException e) {
+                        calReply("{\"ok\":false,\"error\":\"error\"}");
+                        return;
+                    }
+                    if (checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED) {
+                        queryCalendar();
+                    } else {
+                        requestPermissions(new String[]{Manifest.permission.READ_CALENDAR}, REQ_PERM_CAL);
+                    }
+                }
+            });
         }
 
         @JavascriptInterface
