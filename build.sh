@@ -29,7 +29,7 @@ aapt package -f -M AndroidManifest.xml -S res -A assets -I $JAR -0 arsc -F out/u
 (cd out && aapt add u.apk classes.dex >/dev/null)
 zipalign -f 4 out/u.apk out/a.apk
 [ -f release.jks ] || keytool -genkeypair -keystore release.jks -storepass nagarecho -keypass nagarecho -alias nagare -keyalg RSA -keysize 2048 -validity 20000 -dname "CN=Nagarecho" 2>/dev/null
-apksigner sign --ks release.jks --ks-pass pass:nagarecho --key-pass pass:nagarecho --out out/nagarecho-1.7.apk out/a.apk
-apksigner verify -v out/nagarecho-1.7.apk | head -5
-aapt dump badging out/nagarecho-1.7.apk | head -8
-ls -la out/nagarecho-1.7.apk; unzip -l out/nagarecho-1.7.apk
+apksigner sign --ks release.jks --ks-pass pass:nagarecho --key-pass pass:nagarecho --out out/nagarecho-1.8.apk out/a.apk
+apksigner verify -v out/nagarecho-1.8.apk | head -5
+aapt dump badging out/nagarecho-1.8.apk | head -8
+ls -la out/nagarecho-1.8.apk; unzip -l out/nagarecho-1.8.apk
