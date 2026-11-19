@@ -48,6 +48,8 @@ body.clip .runbar button{padding:7px 8px}
 .runbar button.fin{background:var(--shu);border-color:var(--shu)}
 .banner{margin:10px 14px 0;padding:9px 12px;border:1px dashed var(--shu);border-radius:4px;display:flex;align-items:center;gap:8px;font-size:13px}
 .banner button{margin-left:auto;color:var(--shu);font-weight:700;white-space:nowrap}
+.sec.tap{cursor:pointer;user-select:none}
+.sec .chev{font-style:normal;color:var(--usu);font-size:12px;width:12px;align-self:center}
 .sec{display:flex;align-items:baseline;gap:8px;padding:14px 14px 4px;border-bottom:1px solid var(--line)}
 .sec b{font-size:14px;letter-spacing:.2em}
 .sec span{font-size:11px;color:var(--usu)}
@@ -271,15 +273,16 @@ function renderToday(){const c=calc();const list=sorted(c.day);const td=today();
     if(n)h+=`<div class="banner">過去の未完了が ${n}件あります<button data-act="carry">今日へ移す</button></div>`;}
   const SS=secs();if(ui.sec&&!SS.some(s=>s.id===ui.sec))ui.sec='';
   const nDone=list.filter(t=>t.start&&t.end).length;
-  h+=`<div class="chips flt"><button data-act="fsec" data-s="" class="${ui.sec?'':'on'}">すべて</button>${SS.map(s=>{const n=list.filter(t=>secIdx(t.section)===secIdx(s.id)&&!(t.start&&t.end)).length;return `<button data-act="fsec" data-s="${s.id}" class="${ui.sec===s.id?'on':''}">${esc(s.name)}${n?' '+n:''}</button>`;}).join('')}<span class="sp"></span>${hasCal()?'<button data-act="calimport" class="tg">予定を取り込む</button>':''}<button data-act="multi" class="tg ${S.settings.multi?'on':''}">${S.settings.multi?'並行 ON':'並行'}</button><button data-act="sortmode" class="tg ${sortMode?'on':''}">${sortMode?'並べ替え終了':'並べ替え'}</button><button data-act="hidedone" class="tg ${ui.hideDone?'on':''}">${ui.hideDone?'完了を表示'+(nDone?' '+nDone:''):'完了を隠す'}</button></div>`;
+  h+=`<div class="chips flt"><button data-act="fsec" data-s="" class="${ui.sec?'':'on'}">すべて</button>${SS.map(s=>{const n=list.filter(t=>secIdx(t.section)===secIdx(s.id)&&!(t.start&&t.end)).length;return `<button data-act="fsec" data-s="${s.id}" class="${ui.sec===s.id?'on':''}">${esc(s.name)}${n?' '+n:''}</button>`;}).join('')}<span class="sp"></span>${hasCal()?'<button data-act="calimport" class="tg">予定を取り込む</button>':''}<button data-act="multi" class="tg ${S.settings.multi?'on':''}">${S.settings.multi?'並行 ON':'並行'}</button><button data-act="sortmode" class="tg ${sortMode?'on':''}">${sortMode?'並べ替え終了':'並べ替え'}</button><button data-act="foldall" class="tg">${(ui.fold||[]).length?'すべて開く':'すべて畳む'}</button><button data-act="hidedone" class="tg ${ui.hideDone?'on':''}">${ui.hideDone?'完了を表示'+(nDone?' '+nDone:''):'完了を隠す'}</button></div>`;
   if(sortMode)h+=`<p class="hint" style="margin:6px 14px 0">☰ を押したまま上下に動かすか、↑↓ で順番を変えられます（未着手のタスクのみ）。</p>`;
   if(!list.length)h+=`<div class="empty">まだタスクがありません。<br>右下の「＋」から追加してください。</div>`;
   let cur=c.cur,shown=0;const nowSec=c.isT?secAt(Date.now()).id:null;
   for(const s of SS){const all=list.filter(t=>secIdx(t.section)===secIdx(s.id));const vis=!ui.sec||ui.sec===s.id;
     const ts=ui.hideDone?all.filter(t=>!(t.start&&t.end)):all;
     const e=all.filter(t=>!t.start).reduce((m,t)=>m+(t.est||0),0),a=all.reduce((m,t)=>m+act(t),0);
-    if(vis&&(ts.length||s.id===nowSec||ui.sec===s.id))h+=`<div class="sec ${s.id===nowSec?'now':''}"><b>${esc(s.name)}</b><span class="num">${s.start}〜</span><span class="r num">${e?'残 '+dur(e):''}${a?'　済 '+dur(a):''}</span></div>`;
-    for(const t of all){let p0=null;if(!t.start&&c.isT){p0=cur;cur+=(t.est||0)*60000;}if(vis&&ts.includes(t)){h+=taskRow(t,p0,c.isT);shown++;}}}
+    const fold=!sortMode&&(ui.fold||[]).includes(s.id),nTodo=all.filter(t=>!t.start).length;
+    if(vis&&(ts.length||s.id===nowSec||ui.sec===s.id))h+=`<div class="sec ${s.id===nowSec?'now':''} ${sortMode?'':'tap'}" ${sortMode?'':`data-act="fold" data-s="${s.id}"`}>${sortMode?'':`<i class="chev">${fold?'▸':'▾'}</i>`}<b>${esc(s.name)}</b><span class="num">${s.start}〜</span><span class="r num">${fold&&nTodo?nTodo+'件・':''}${e?'残 '+dur(e):''}${a?'　済 '+dur(a):''}</span></div>`;
+    for(const t of all){let p0=null;if(!t.start&&c.isT){p0=cur;cur+=(t.est||0)*60000;}if(vis&&ts.includes(t)){if(fold)shown++;else{h+=taskRow(t,p0,c.isT);shown++;}}}}
   if(list.length&&!shown)h+=`<div class="empty">${ui.hideDone?'未完了のタスクはありません。':'このセクションにタスクはありません。'}</div>`;
   $('mn').innerHTML=h;}
 function inboxSorted(){return S.inbox.slice().sort((a,b)=>(a.order||0)-(b.order||0));}
@@ -431,7 +434,7 @@ function renderSetting(){const st=S.settings;
   <h2>Googleドライブ</h2>${driveHtml()}
   <h2>データ</h2><p class="hint">データはこの端末の中に保存されます。アプリを削除すると消えるので、Googleドライブ保存かバックアップを使ってください。</p>
   <div class="btns"><button class="btn" data-act="backup">バックアップ（JSON）</button><button class="btn" data-act="restore">復元</button><button class="btn" data-act="csv">全記録をCSVで保存</button></div>
-  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.11</p></div>`;
+  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.12</p></div>`;
   $('mn').innerHTML=h;}
 
 /* ---------- シート ---------- */
@@ -524,6 +527,8 @@ const A={
  toinbox(){const id=$('f_id').value,t=findTask(view,id);if(!t)return;S.days[view].tasks=S.days[view].tasks.filter(x=>x!==t);
   S.inbox.push({id:uid(),name:t.name,est:t.est,projectId:t.projectId,modeId:t.modeId||'',note:t.note||'',keep:false,order:S.inbox.reduce((m,x)=>Math.max(m,x.order||0),0)+1});save();closeSheet();render();toast('やることへ戻しました');},
  fsec(d){ui.sec=d.s;saveUi();render();},
+ fold(d){const f=new Set(ui.fold||[]);f.has(d.s)?f.delete(d.s):f.add(d.s);ui.fold=[...f];saveUi();const y=$('mn').scrollTop;render();$('mn').scrollTop=y;},
+ foldall(){ui.fold=(ui.fold||[]).length?[]:secs().map(x=>x.id);saveUi();render();},
  hidedone(){ui.hideDone=!ui.hideDone;saveUi();render();},
  start(d){startTask(view,d.id);},
  startprev(){const id=$('f_id').value;closeSheet();startTask(view,id,true);},
