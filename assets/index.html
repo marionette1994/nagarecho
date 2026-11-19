@@ -42,6 +42,9 @@ body.clip .runbar .rn b,body.clip .task .tn{white-space:nowrap;overflow:hidden;t
 .runbar button{border:1px solid var(--washi);border-radius:4px;padding:7px 10px;font-size:13px;color:var(--washi)}
 .runbar{flex-wrap:wrap}
 .runbar button.snapb{flex-basis:100%;border:0;border-top:1px solid rgba(244,239,228,.25);border-radius:0;padding:8px 0 0;font-size:12px;text-align:left;color:#f0c9a8}
+.runbar button.estb{border-color:#f0c9a8;color:#f0c9a8}
+.runbar button[hidden]{display:none}
+body.clip .runbar button{padding:7px 8px}
 .runbar button.fin{background:var(--shu);border-color:var(--shu)}
 .banner{margin:10px 14px 0;padding:9px 12px;border:1px dashed var(--shu);border-radius:4px;display:flex;align-items:center;gap:8px;font-size:13px}
 .banner button{margin-left:auto;color:var(--shu);font-weight:700;white-space:nowrap}
@@ -216,6 +219,8 @@ function startTask(date,id,fromPrev){let now=Date.now();const cur=runs().length>
   t.start=now;t.end=null;t.section=secAt(now).id;S.runs.push({date,id:t.id});save();render();}
 function pickRun(id){const rs=runs();const r=id?rs.find(x=>x.id===id):rs[rs.length-1];return r?r.t:null;}
 function finishRun(id){const t=pickRun(id);if(!t)return;t.end=Date.now();S.runs=S.runs.filter(x=>x.id!==t.id);save();render();toast('完了　'+dur(act(t)));}
+// 終了時刻を「開始＋見積」にして完了する（現在時刻より後にはしない）
+function finishEst(id){const t=pickRun(id);if(!t)return;const e=Math.min(Date.now(),t.start+(t.est||0)*60000);t.end=Math.max(t.start,e);S.runs=S.runs.filter(x=>x.id!==t.id);save();render();toast('見積通りに完了　'+hm(t.start)+'–'+hm(t.end)+'（'+dur(act(t))+'）');}
 function pauseRun(id){const t=pickRun(id);if(!t)return;t.end=Date.now();S.runs=S.runs.filter(x=>x.id!==t.id);
   const d=dayW(today());const minO=d.tasks.reduce((m,x)=>Math.min(m,x.order||0),0);
   d.tasks.push({id:uid(),name:t.name,est:Math.max(1,(t.est||0)-act(t)),projectId:t.projectId,modeId:t.modeId||'',section:secAt(Date.now()).id,start:null,end:null,note:t.note||'',routineId:null,order:minO-1});
@@ -260,7 +265,7 @@ function taskRow(t,proj0,isT){const p=proj(t.projectId),mo=mode(t.modeId);const 
 function renderToday(){const c=calc();const list=sorted(c.day);const td=today();let h='';
   if(c.rs.length)h+='<div class="runwrap">';
   for(const r of c.rs){const run=r.t;const el=Date.now()-run.start;h+=`<div class="runbar"><div class="rn"><b>${esc(run.name)}</b><span class="num">${hm(run.start)}開始・見積 ${run.est||0}分</span></div>
-    <div class="el num ${el>(run.est||0)*60000&&run.est?'over':''}" data-s="${run.start}" data-e="${run.est||0}">${hms(el)}</div><button data-act="pause" data-id="${run.id}">中断</button><button class="fin" data-act="finish" data-id="${run.id}">完了</button>${(()=>{if(c.rs.length>1)return '';const pe=prevEnd(run.id);return pe&&run.start-pe>=60000?`<button class="snapb" data-act="snap">⇤ 開始を前タスクの終了時刻（${hm(pe)}）に合わせる</button>`:'';})()}</div>`;}
+    <div class="el num ${el>(run.est||0)*60000&&run.est?'over':''}" data-s="${run.start}" data-e="${run.est||0}">${hms(el)}</div><button class="estb" data-act="finishest" data-id="${run.id}" data-s="${run.start}" data-e="${run.est||0}" ${run.est&&el>=run.est*60000?'':'hidden'}>見積通り</button><button data-act="pause" data-id="${run.id}">中断</button><button class="fin" data-act="finish" data-id="${run.id}">完了</button>${(()=>{if(c.rs.length>1)return '';const pe=prevEnd(run.id);return pe&&run.start-pe>=60000?`<button class="snapb" data-act="snap">⇤ 開始を前タスクの終了時刻（${hm(pe)}）に合わせる</button>`:'';})()}</div>`;}
   if(c.rs.length)h+='</div>';
   if(c.isT){let n=0;for(let i=1;i<=14;i++){const d=S.days[addDays(td,-i)];if(d)n+=d.tasks.filter(t=>!t.start&&!t.routineId).length;}
     if(n)h+=`<div class="banner">過去の未完了が ${n}件あります<button data-act="carry">今日へ移す</button></div>`;}
@@ -426,7 +431,7 @@ function renderSetting(){const st=S.settings;
   <h2>Googleドライブ</h2>${driveHtml()}
   <h2>データ</h2><p class="hint">データはこの端末の中に保存されます。アプリを削除すると消えるので、Googleドライブ保存かバックアップを使ってください。</p>
   <div class="btns"><button class="btn" data-act="backup">バックアップ（JSON）</button><button class="btn" data-act="restore">復元</button><button class="btn" data-act="csv">全記録をCSVで保存</button></div>
-  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.10</p></div>`;
+  <div class="btns"><button class="btn dan" data-act="wipe">すべて消去</button></div><p class="hint">流帖 1.11</p></div>`;
   $('mn').innerHTML=h;}
 
 /* ---------- シート ---------- */
@@ -452,6 +457,7 @@ function editSheet(id){const t=findTask(view,id);if(!t)return;const st=t.start?(
   h+=`<div class="f"><label>メモ</label><textarea id="f_note">${esc(t.note||'')}</textarea></div><div class="btns"><button class="btn pri" data-act="editsave">保存</button><button class="btn" data-act="close">閉じる</button></div><div class="btns">`;
   if(st==='todo'&&view===today()&&!runs().length){const pe=prevEnd(t.id);if(pe)h+=`<button class="btn" data-act="startprev">▶ 前タスク終了（${hm(pe)}）から開始</button>`;}
   if(st==='todo')h+=`<button class="btn" data-act="mv" data-d="-1">↑ 上へ</button><button class="btn" data-act="mv" data-d="1">↓ 下へ</button><button class="btn" data-act="tomorrow">翌日へ送る</button><button class="btn" data-act="toinbox">やることへ戻す</button>`;
+  if(st!=='todo'&&t.est&&(st==='run'?Date.now()-t.start>=t.est*60000:act(t)!==t.est))h+=`<button class="btn" data-act="endest">⏱ 終了を見積通り（${hm(t.start+t.est*60000)}）にする</button>`;
   if(st==='done')h+=`<button class="btn" data-act="redo">もう一度やる</button><button class="btn" data-act="unstart">未着手に戻す</button>`;
   if(!t.routineId)h+=`<button class="btn" data-act="mkroutine">ルーチンにする</button>`;
   h+=`<button class="btn dan" data-act="del">削除</button></div>`;openSheet(h);}
@@ -523,6 +529,9 @@ const A={
  startprev(){const id=$('f_id').value;closeSheet();startTask(view,id,true);},
  snap(){const t=runTask();if(!t)return;const pe=prevEnd(t.id);if(!pe||pe>=t.start)return;t.start=pe;t.section=secAt(pe).id;save();render();toast('開始を '+hm(pe)+' に合わせました');},
  finish(d){finishRun(d.id);},
+ finishest(d){finishEst(d.id);},
+ endest(){const t=findTask(view,$('f_id').value);if(!t||!t.start)return;if(!t.end){closeSheet();finishEst(t.id);return;}
+  const e=t.start+(t.est||0)*60000;if(e>Date.now()){toast('見積通りの終了時刻がまだ来ていません');return;}t.end=e;save();closeSheet();render();toast('終了を '+hm(e)+' にしました（見積通り）');},
  pause(d){pauseRun(d.id);},
  multi(){S.settings.multi=!S.settings.multi;save();render();toast(S.settings.multi?'並行実行ON：実行中のタスクを止めずに別のタスクを開始できます':'並行実行OFF：開始すると実行中のタスクは終了します');},
  edit(d){editSheet(d.id);},
@@ -598,6 +607,7 @@ window.onAndroidPause=()=>{if(window.Android&&Android.linkName&&S.settings.autoS
 /* ---------- 時計 ---------- */
 let lastDay=today(),lastMin=-1;
 setInterval(()=>{if(drag)return;const td=today();if(td!==lastDay){if(view===lastDay)view=td;lastDay=td;render();return;}
+  document.querySelectorAll('.estb').forEach(b=>{const e=+b.dataset.e;b.hidden=!(e&&Date.now()-+b.dataset.s>=e*60000);});
   document.querySelectorAll('.el[data-s]').forEach(el=>{const ms=Date.now()-+el.dataset.s,e=+el.dataset.e;el.textContent=hms(ms);el.classList.toggle('over',!!e&&ms>e*60000);});
   const m=new Date().getMinutes();if(m!==lastMin){lastMin=m;if(!$('ovl').classList.contains('on')&&tab==='today'){const y=$('mn').scrollTop;render();$('mn').scrollTop=y;}else renderHead();}
 },1000);
